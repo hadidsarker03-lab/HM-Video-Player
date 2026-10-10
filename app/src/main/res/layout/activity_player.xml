@@ -45,6 +45,21 @@
             android:textColor="#FFFFFF"
             android:textSize="16sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btnAspect"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_badge"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="8dp"
+            android:text="Full"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
     <TextView
