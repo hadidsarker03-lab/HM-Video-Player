@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#0F1115</color>
+    <color name="surface">#1B1E26</color>
+    <color name="accent">#FF5A5F</color>
+    <color name="text_primary">#F2F3F5</color>
+    <color name="text_secondary">#9AA0AB</color>
+
+    <style name="Theme.VideoPlayer" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/accent</item>
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+    </style>
+</resources>
