@@ -23,7 +23,7 @@ jobs:
           for f in MainActivity.kt PlayerActivity.kt VideoAdapter.kt Video.kt; do mv_if $f $J; done
           mv_if AndroidManifest.xml app/src/main
           for f in activity_main.xml activity_player.xml item_video.xml; do mv_if $f $R/layout; done
-          for f in bg_badge.xml bg_top_gradient.xml; do mv_if $f $R/drawable; done
+          for f in ic_*.xml bg_*.xml; do mv_if "$f" $R/drawable; done
           mv_if themes.xml $R/values
           if [ ! -f build.gradle ]; then
           cat > build.gradle <<'EOF'
