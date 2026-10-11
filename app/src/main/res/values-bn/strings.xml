@@ -8,7 +8,7 @@
 
     <string name="header_videos">%dটি ভিডিও</string>
     <string name="header_audio">%dটি গান</string>
-    <string name="header_settings">নিজের মতো সাজান</string>
+    <string name="header_settings">পছন্দসমূহ</string>
 
     <string name="perm_needed">ফাইল দেখতে মিডিয়ার অনুমতি দিন</string>
     <string name="btn_allow">অনুমতি দিন</string>
@@ -19,9 +19,8 @@
 
     <string name="settings_language">ভাষা</string>
     <string name="settings_theme">থিম</string>
-    <string name="settings_accent">অ্যাকসেন্ট রং</string>
     <string name="settings_about">অ্যাপ সম্পর্কে</string>
-    <string name="mode_system">সিস্টেম</string>
+    <string name="mode_system">সিস্টেম ডিফল্ট</string>
     <string name="mode_light">লাইট</string>
     <string name="mode_dark">ডার্ক</string>
     <string name="about_text">HM player · সংস্করণ %s</string>
@@ -42,4 +41,13 @@
     <string name="desc_prev">আগেরটি</string>
     <string name="desc_next">পরেরটি</string>
     <string name="desc_play">চালান / থামান</string>
+    <string name="settings_layout">লেআউট</string>
+    <string name="layout_list">লিস্ট</string>
+    <string name="layout_grid">গ্রিড</string>
+    <string name="layout_compact">কমপ্যাক্ট</string>
+    <string name="desc_view">ভিউ পরিবর্তন</string>
+    <string name="settings_glass">ট্রান্সপারেন্ট ইন্টারফেস</string>
+    <string name="settings_background">ব্যাকগ্রাউন্ডে চালানো</string>
+    <string name="opt_on">চালু</string>
+    <string name="opt_off">বন্ধ</string>
 </resources>

@@ -8,7 +8,7 @@
 
     <string name="header_videos">%d videos</string>
     <string name="header_audio">%d songs</string>
-    <string name="header_settings">Make it yours</string>
+    <string name="header_settings">Preferences</string>
 
     <string name="perm_needed">Allow access to your media to see your files</string>
     <string name="btn_allow">Allow access</string>
@@ -19,9 +19,8 @@
 
     <string name="settings_language">Language</string>
     <string name="settings_theme">Theme</string>
-    <string name="settings_accent">Accent color</string>
     <string name="settings_about">About</string>
-    <string name="mode_system">System</string>
+    <string name="mode_system">System default</string>
     <string name="mode_light">Light</string>
     <string name="mode_dark">Dark</string>
     <string name="about_text">HM player · Version %s</string>
@@ -42,4 +41,13 @@
     <string name="desc_prev">Previous</string>
     <string name="desc_next">Next</string>
     <string name="desc_play">Play / Pause</string>
+    <string name="settings_layout">Layout</string>
+    <string name="layout_list">List</string>
+    <string name="layout_grid">Grid</string>
+    <string name="layout_compact">Compact</string>
+    <string name="desc_view">Change view</string>
+    <string name="settings_glass">Transparent interface</string>
+    <string name="settings_background">Background playback</string>
+    <string name="opt_on">On</string>
+    <string name="opt_off">Off</string>
 </resources>

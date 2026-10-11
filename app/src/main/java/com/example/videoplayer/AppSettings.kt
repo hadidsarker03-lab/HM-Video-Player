@@ -7,17 +7,10 @@ import androidx.core.os.LocaleListCompat
 
 object AppSettings {
 
-    // থিমের অ্যাকসেন্ট রং (Theme.HMPlayer.Accent0..5 এর সাথে মিলিয়ে)
-    val ACCENTS = intArrayOf(
-        0xFFFF5A5F.toInt(), 0xFF3B82F6.toInt(), 0xFF22C55E.toInt(),
-        0xFF8B5CF6.toInt(), 0xFFF59E0B.toInt(), 0xFFEC4899.toInt()
-    )
-
-    private val ACCENT_STYLES = intArrayOf(
-        R.style.Theme_HMPlayer_Accent0, R.style.Theme_HMPlayer_Accent1,
-        R.style.Theme_HMPlayer_Accent2, R.style.Theme_HMPlayer_Accent3,
-        R.style.Theme_HMPlayer_Accent4, R.style.Theme_HMPlayer_Accent5
-    )
+    // লিস্টের ভিউ মোড
+    const val VIEW_LIST = 0
+    const val VIEW_GRID = 1
+    const val VIEW_COMPACT = 2
 
     fun prefs(c: Context): SharedPreferences =
         c.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -34,8 +27,8 @@ object AppSettings {
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(code))
     }
 
-    // থিম মোড: system / light / dark (ডিফল্ট: dark)
-    fun themeMode(c: Context): String = prefs(c).getString("theme", "dark") ?: "dark"
+    // থিম: system / light / dark (ডিফল্ট: system)
+    fun themeMode(c: Context): String = prefs(c).getString("theme", "system") ?: "system"
 
     fun setThemeMode(c: Context, mode: String) {
         prefs(c).edit().putString("theme", mode).apply()
@@ -44,16 +37,31 @@ object AppSettings {
 
     fun nightModeFor(mode: String): Int = when (mode) {
         "light" -> AppCompatDelegate.MODE_NIGHT_NO
-        "system" -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-        else -> AppCompatDelegate.MODE_NIGHT_YES
+        "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+        else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
     }
 
-    // অ্যাকসেন্ট রং
-    fun accent(c: Context): Int = prefs(c).getInt("accent", 0).coerceIn(0, ACCENTS.size - 1)
+    // ট্রান্সপারেন্ট (গ্লাস) ইন্টারফেস (ডিফল্ট: চালু)
+    fun glass(c: Context): Boolean = prefs(c).getBoolean("glass", true)
 
-    fun setAccent(c: Context, index: Int) {
-        prefs(c).edit().putInt("accent", index).apply()
+    fun setGlass(c: Context, on: Boolean) {
+        prefs(c).edit().putBoolean("glass", on).apply()
     }
 
-    fun accentStyle(c: Context): Int = ACCENT_STYLES[accent(c)]
+    fun themeRes(c: Context): Int =
+        if (glass(c)) R.style.Theme_HMPlayer_Glass else R.style.Theme_HMPlayer
+
+    // ব্যাকগ্রাউন্ডে চালানো (ডিফল্ট: চালু)
+    fun backgroundPlay(c: Context): Boolean = prefs(c).getBoolean("bg_play", true)
+
+    fun setBackgroundPlay(c: Context, on: Boolean) {
+        prefs(c).edit().putBoolean("bg_play", on).apply()
+    }
+
+    // ভিউ মোড: list / grid / compact
+    fun viewMode(c: Context): Int = prefs(c).getInt("view_mode", VIEW_LIST).coerceIn(0, 2)
+
+    fun setViewMode(c: Context, mode: Int) {
+        prefs(c).edit().putInt("view_mode", mode).apply()
+    }
 }

@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#F4F5F9</color>
+    <color name="bg">#F6F7F9</color>
     <color name="surface">#FFFFFF</color>
-    <color name="surface_alt">#ECEEF4</color>
-    <color name="text_primary">#14161B</color>
-    <color name="text_secondary">#6B7280</color>
-    <color name="divider">#E2E5EC</color>
+    <color name="surface_alt">#EDEFF3</color>
+    <color name="text_primary">#0F1218</color>
+    <color name="text_secondary">#646B7A</color>
+    <color name="divider">#E4E7EC</color>
+    <color name="accent">#2563EB</color>
+    <color name="on_accent">#FFFFFF</color>
+    <color name="glass_window">#B8F6F7F9</color>
+    <color name="glass_surface">#B3FFFFFF</color>
+    <color name="glass_surface_alt">#1A000000</color>
+    <color name="glass_divider">#1F000000</color>
 </resources>

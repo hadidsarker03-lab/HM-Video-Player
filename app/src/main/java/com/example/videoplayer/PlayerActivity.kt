@@ -1,6 +1,7 @@
 package com.example.videoplayer
 
 import android.annotation.SuppressLint
+import android.content.ComponentName
 import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.net.Uri
@@ -16,6 +17,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -24,9 +26,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.google.common.util.concurrent.ListenableFuture
 import kotlin.math.abs
 
 class PlayerActivity : AppCompatActivity() {
@@ -36,7 +40,6 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var feedbackBox: View
     private lateinit var feedbackIcon: ImageView
     private lateinit var audioArt: View
-    private var isAudio = false
     private lateinit var topBar: View
     private lateinit var bottomPanel: View
     private lateinit var titleView: TextView
@@ -50,13 +53,16 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var btnNext: ImageView
     private lateinit var audio: AudioManager
 
-    private var player: ExoPlayer? = null
+    // প্লেয়ার চলে PlaybackService-এ; এখানে MediaController দিয়ে সংযোগ করা হয়
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var player: Player? = null
+    private var isAudio = false
+    private var needLoad = true
 
     // প্লেলিস্ট
     private var uris: List<String> = emptyList()
     private var titles: List<String> = emptyList()
 
-    // onStop-এ সেভ হয়, onStart-এ ফিরিয়ে আনা হয়
     private var savedIndex = 0
     private var savedPosition = 0L
     private var savedPlayWhenReady = true
@@ -114,10 +120,30 @@ class PlayerActivity : AppCompatActivity() {
     private var pendingSeek = -1L
     private var volAccum = 0f
 
+    private val playerListener = object : Player.Listener {
+        override fun onPlayerError(error: PlaybackException) {
+            Toast.makeText(
+                this@PlayerActivity,
+                getString(R.string.err_play, error.errorCodeName),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            btnPlay.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            onItemChanged(mediaItem)
+            updateProgress()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(AppSettings.accentStyle(this))
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
+
+        val resume = intent.getBooleanExtra(EXTRA_RESUME, false)
         isAudio = intent.getBooleanExtra(EXTRA_AUDIO, false)
 
         val list = intent.getStringArrayListExtra(EXTRA_URIS)
@@ -127,18 +153,21 @@ class PlayerActivity : AppCompatActivity() {
             savedIndex = intent.getIntExtra(EXTRA_INDEX, 0).coerceIn(0, list.size - 1)
         } else {
             val single = intent.getStringExtra(EXTRA_URI)
-            if (single == null) {
+            if (single != null) {
+                uris = listOf(single)
+                titles = listOf(intent.getStringExtra(EXTRA_TITLE) ?: "")
+                savedIndex = 0
+            } else if (!resume) {
                 Toast.makeText(this, getString(R.string.err_not_found), Toast.LENGTH_SHORT).show()
                 finish()
                 return
             }
-            uris = listOf(single)
-            titles = listOf(intent.getStringExtra(EXTRA_TITLE) ?: "")
-            savedIndex = 0
         }
 
+        // নতুন করে খুললে প্লেলিস্ট লোড হয়; নোটিফিকেশন বা রিস্টোর থেকে এলে চলমান প্লেয়ারেই যুক্ত হয়
+        needLoad = savedInstanceState == null && !resume
         if (savedInstanceState != null) {
-            savedIndex = savedInstanceState.getInt(KEY_INDEX, savedIndex).coerceIn(0, uris.size - 1)
+            savedIndex = savedInstanceState.getInt(KEY_INDEX, savedIndex).coerceAtLeast(0)
             savedPosition = savedInstanceState.getLong(KEY_POS, 0L)
             savedPlayWhenReady = savedInstanceState.getBoolean(KEY_PLAY, true)
         }
@@ -161,14 +190,10 @@ class PlayerActivity : AppCompatActivity() {
         aspectLabel = findViewById(R.id.aspectLabel)
         rotateLabel = findViewById(R.id.rotateLabel)
 
-        if (isAudio) {
-            audioArt.visibility = View.VISIBLE
-            findViewById<View>(R.id.btnAspect).visibility = View.GONE
-        }
-
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
         playerView.keepScreenOn = true
 
+        applyAudioMode()
         setupControls()
         setupGestures()
         enterImmersive()
@@ -176,7 +201,8 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        initPlayer()
+        if (!::playerView.isInitialized) return
+        connectController()
         handler.post(ticker)
         scheduleAutoHide()
     }
@@ -184,12 +210,13 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         handler.removeCallbacks(ticker)
-        releasePlayer()
+        releaseController()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
+        releaseController()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -199,58 +226,98 @@ class PlayerActivity : AppCompatActivity() {
         outState.putBoolean(KEY_PLAY, player?.playWhenReady ?: savedPlayWhenReady)
     }
 
-    // ---------- প্লেয়ার ----------
-    private fun initPlayer() {
-        if (player != null) return
+    // ---------- প্লেয়ার সংযোগ (ব্যাকগ্রাউন্ড সার্ভিসের সাথে) ----------
+    private fun connectController() {
+        if (controllerFuture != null) return
+        val token = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+        val future = MediaController.Builder(this, token).buildAsync()
+        controllerFuture = future
+        future.addListener({ onControllerReady(future) }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun onControllerReady(future: ListenableFuture<MediaController>) {
+        if (controllerFuture !== future) return // এর মধ্যে অ্যাক্টিভিটি থেমে গেছে
+        val c = try {
+            future.get()
+        } catch (e: Exception) {
+            Toast.makeText(
+                this, getString(R.string.err_play, e.javaClass.simpleName), Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        player = c
+        playerView.player = c
+        c.addListener(playerListener)
+
+        if (needLoad || c.mediaItemCount == 0) {
+            if (uris.isEmpty()) {
+                finish()
+                return
+            }
+            loadItems(c)
+        }
+        onItemChanged(c.currentMediaItem)
+        btnPlay.setImageResource(
+            if (c.isPlaying || c.playWhenReady) R.drawable.ic_pause else R.drawable.ic_play
+        )
+        updateProgress()
+        scheduleAutoHide()
+    }
+
+    private fun loadItems(c: MediaController) {
         val items = uris.mapIndexed { i, u ->
+            val extras = Bundle().apply { putBoolean(META_AUDIO, isAudio) }
             MediaItem.Builder()
+                .setMediaId(u)
                 .setUri(Uri.parse(u))
                 .setMediaMetadata(
-                    MediaMetadata.Builder().setTitle(titles.getOrElse(i) { "" }).build()
+                    MediaMetadata.Builder()
+                        .setTitle(titles.getOrElse(i) { "" })
+                        .setExtras(extras)
+                        .build()
                 )
                 .build()
         }
         val start = savedIndex.coerceIn(0, items.size - 1)
-        titleView.text = titles.getOrElse(start) { "" }
-        btnPlay.setImageResource(if (savedPlayWhenReady) R.drawable.ic_pause else R.drawable.ic_play)
+        c.setMediaItems(items, start, savedPosition)
+        c.playWhenReady = savedPlayWhenReady
+        c.prepare()
+        needLoad = false
+    }
 
-        player = ExoPlayer.Builder(this).build().also { p ->
-            playerView.player = p
-            p.setMediaItems(items, start, savedPosition)
-            p.playWhenReady = savedPlayWhenReady
-            p.addListener(object : Player.Listener {
-                override fun onPlayerError(error: PlaybackException) {
-                    Toast.makeText(
-                        this@PlayerActivity,
-                        getString(R.string.err_play, error.errorCodeName),
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    btnPlay.setImageResource(
-                        if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                    )
-                }
-
-                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    titleView.text = mediaItem?.mediaMetadata?.title ?: ""
-                    updateProgress()
-                }
-            })
-            p.prepare()
+    private fun onItemChanged(item: MediaItem?) {
+        titleView.text = item?.mediaMetadata?.title ?: ""
+        val audioFlag = item?.mediaMetadata?.extras?.getBoolean(META_AUDIO, false)
+        if (audioFlag != null && audioFlag != isAudio) {
+            isAudio = audioFlag
+            applyAudioMode()
         }
     }
 
-    private fun releasePlayer() {
-        player?.let {
-            savedIndex = it.currentMediaItemIndex
-            savedPosition = it.currentPosition
-            savedPlayWhenReady = it.playWhenReady
-            it.release()
+    private fun applyAudioMode() {
+        audioArt.visibility = if (isAudio) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.btnAspect).visibility = if (isAudio) View.GONE else View.VISIBLE
+    }
+
+    // স্ক্রিন ছাড়লে: ব্যাকগ্রাউন্ড প্লে চালু থাকলে গান/ভিডিওর শব্দ চলতে থাকে
+    private fun releaseController() {
+        val c = player
+        if (c != null) {
+            savedIndex = c.currentMediaItemIndex
+            savedPosition = c.currentPosition
+            savedPlayWhenReady = c.playWhenReady
+            c.removeListener(playerListener)
+            // ব্যাক চাপলে ভিডিও থামে; গান ব্যাকগ্রাউন্ড চালু থাকলে চলতে থাকে
+            val keepPlaying = AppSettings.backgroundPlay(this) && (!isFinishing || isAudio)
+            if (!keepPlaying) {
+                c.pause()
+                if (isFinishing) c.clearMediaItems()
+            }
         }
+        if (::playerView.isInitialized) playerView.player = null
         player = null
-        playerView.player = null
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture = null
     }
 
     private fun togglePlay() {
@@ -511,6 +578,8 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_TITLES = "extra_titles"
         const val EXTRA_INDEX = "extra_index"
         const val EXTRA_AUDIO = "extra_audio"
+        const val EXTRA_RESUME = "extra_resume"
+        private const val META_AUDIO = "meta_audio"
         private const val KEY_INDEX = "key_index"
         private const val KEY_POS = "key_pos"
         private const val KEY_PLAY = "key_play"
