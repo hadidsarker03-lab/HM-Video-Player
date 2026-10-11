@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HM player</string>
+
+    <string name="tab_video">ভিডিও</string>
+    <string name="tab_audio">অডিও</string>
+    <string name="tab_settings">সেটিংস</string>
+
+    <string name="header_videos">%dটি ভিডিও</string>
+    <string name="header_audio">%dটি গান</string>
+    <string name="header_settings">নিজের মতো সাজান</string>
+
+    <string name="perm_needed">ফাইল দেখতে মিডিয়ার অনুমতি দিন</string>
+    <string name="btn_allow">অনুমতি দিন</string>
+    <string name="btn_sample">স্যাম্পল ভিডিও চালান</string>
+    <string name="empty_video">কোনো ভিডিও পাওয়া যায়নি</string>
+    <string name="empty_audio">কোনো অডিও ফাইল পাওয়া যায়নি</string>
+    <string name="sample_title">Big Buck Bunny (স্যাম্পল)</string>
+
+    <string name="settings_language">ভাষা</string>
+    <string name="settings_theme">থিম</string>
+    <string name="settings_accent">অ্যাকসেন্ট রং</string>
+    <string name="settings_about">অ্যাপ সম্পর্কে</string>
+    <string name="mode_system">সিস্টেম</string>
+    <string name="mode_light">লাইট</string>
+    <string name="mode_dark">ডার্ক</string>
+    <string name="about_text">HM player · সংস্করণ %s</string>
+
+    <string name="aspect_full">ফুল</string>
+    <string name="aspect_stretch">স্ট্রেচ</string>
+    <string name="aspect_crop">ক্রপ</string>
+    <string name="rot_auto">অটো</string>
+    <string name="rot_landscape">ল্যান্ডস্কেপ</string>
+    <string name="rot_portrait">পোর্ট্রেট</string>
+
+    <string name="err_play">এই ফাইল চালানো যাচ্ছে না: %s</string>
+    <string name="err_not_found">মিডিয়া পাওয়া যায়নি</string>
+
+    <string name="desc_back">ফিরে যান</string>
+    <string name="desc_frame">ভিডিও ফ্রেম</string>
+    <string name="desc_rotate">রোটেশন</string>
+    <string name="desc_prev">আগেরটি</string>
+    <string name="desc_next">পরেরটি</string>
+    <string name="desc_play">চালান / থামান</string>
+</resources>

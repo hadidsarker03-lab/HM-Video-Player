@@ -8,9 +8,10 @@
     android:clickable="true"
     android:focusable="true"
     app:cardBackgroundColor="@color/surface"
-    app:cardCornerRadius="16dp"
+    app:cardCornerRadius="18dp"
     app:cardElevation="0dp"
-    app:strokeWidth="0dp">
+    app:strokeColor="@color/divider"
+    app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -23,14 +24,14 @@
             android:layout_width="130dp"
             android:layout_height="80dp"
             app:cardBackgroundColor="#000000"
-            app:cardCornerRadius="12dp"
+            app:cardCornerRadius="13dp"
             app:cardElevation="0dp">
 
             <ImageView
                 android:id="@+id/thumb"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:contentDescription="থাম্বনেইল"
+                android:importantForAccessibility="no"
                 android:scaleType="centerCrop" />
 
             <TextView
@@ -49,7 +50,7 @@
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="14dp"
             android:layout_weight="1"
             android:orientation="vertical">
 

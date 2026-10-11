@@ -1,6 +1,7 @@
 package com.example.videoplayer
 
 import android.annotation.SuppressLint
+import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Bundle
@@ -9,6 +10,9 @@ import android.os.Looper
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.DecelerateInterpolator
+import android.widget.ImageView
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -17,6 +21,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -28,9 +33,49 @@ class PlayerActivity : AppCompatActivity() {
 
     private lateinit var playerView: PlayerView
     private lateinit var feedback: TextView
+    private lateinit var feedbackBox: View
+    private lateinit var feedbackIcon: ImageView
+    private lateinit var audioArt: View
+    private var isAudio = false
     private lateinit var topBar: View
+    private lateinit var bottomPanel: View
+    private lateinit var titleView: TextView
+    private lateinit var aspectLabel: TextView
+    private lateinit var rotateLabel: TextView
+    private lateinit var seekBar: SeekBar
+    private lateinit var posText: TextView
+    private lateinit var durText: TextView
+    private lateinit var btnPlay: ImageView
+    private lateinit var btnPrev: ImageView
+    private lateinit var btnNext: ImageView
     private lateinit var audio: AudioManager
-    private lateinit var btnAspect: TextView
+
+    private var player: ExoPlayer? = null
+
+    // প্লেলিস্ট
+    private var uris: List<String> = emptyList()
+    private var titles: List<String> = emptyList()
+
+    // onStop-এ সেভ হয়, onStart-এ ফিরিয়ে আনা হয়
+    private var savedIndex = 0
+    private var savedPosition = 0L
+    private var savedPlayWhenReady = true
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val hideFeedback = Runnable { feedbackBox.visibility = View.GONE }
+
+    // কন্ট্রোল প্যানেল
+    private var controlsVisible = true
+    private var dragging = false
+    private val autoHide = Runnable {
+        if (!isAudio && player?.isPlaying == true && !dragging) hideControls() else scheduleAutoHide()
+    }
+    private val ticker = object : Runnable {
+        override fun run() {
+            updateProgress()
+            handler.postDelayed(this, 500)
+        }
+    }
 
     // ফ্রেম মোড: Full / Stretch / Crop
     private val aspectModes = intArrayOf(
@@ -38,18 +83,29 @@ class PlayerActivity : AppCompatActivity() {
         AspectRatioFrameLayout.RESIZE_MODE_FILL,
         AspectRatioFrameLayout.RESIZE_MODE_ZOOM
     )
-    private val aspectNames = arrayOf("Full", "Stretch", "Crop")
+    private val aspectNames by lazy {
+        arrayOf(
+            getString(R.string.aspect_full),
+            getString(R.string.aspect_stretch),
+            getString(R.string.aspect_crop)
+        )
+    }
     private var aspectIndex = 0
 
-    private var player: ExoPlayer? = null
-    private lateinit var videoUri: Uri
-
-    // onStop-এ সেভ হয়, onStart-এ ফিরিয়ে আনা হয়
-    private var savedPosition = 0L
-    private var savedPlayWhenReady = true
-
-    private val handler = Handler(Looper.getMainLooper())
-    private val hideFeedback = Runnable { feedback.visibility = View.GONE }
+    // রোটেশন মোড: Auto / Landscape / Portrait
+    private val rotationModes = intArrayOf(
+        ActivityInfo.SCREEN_ORIENTATION_SENSOR,
+        ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
+        ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+    )
+    private val rotationNames by lazy {
+        arrayOf(
+            getString(R.string.rot_auto),
+            getString(R.string.rot_landscape),
+            getString(R.string.rot_portrait)
+        )
+    }
+    private var rotationIndex = 0
 
     // জেসচার স্টেট
     private enum class Mode { NONE, SEEK, BRIGHTNESS, VOLUME }
@@ -59,44 +115,61 @@ class PlayerActivity : AppCompatActivity() {
     private var volAccum = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(AppSettings.accentStyle(this))
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
+        isAudio = intent.getBooleanExtra(EXTRA_AUDIO, false)
 
-        val uriStr = intent.getStringExtra(EXTRA_URI)
-        if (uriStr == null) {
-            Toast.makeText(this, "ভিডিও পাওয়া যায়নি", Toast.LENGTH_SHORT).show()
-            finish()
-            return
+        val list = intent.getStringArrayListExtra(EXTRA_URIS)
+        if (list != null && list.isNotEmpty()) {
+            uris = list
+            titles = intent.getStringArrayListExtra(EXTRA_TITLES) ?: list
+            savedIndex = intent.getIntExtra(EXTRA_INDEX, 0).coerceIn(0, list.size - 1)
+        } else {
+            val single = intent.getStringExtra(EXTRA_URI)
+            if (single == null) {
+                Toast.makeText(this, getString(R.string.err_not_found), Toast.LENGTH_SHORT).show()
+                finish()
+                return
+            }
+            uris = listOf(single)
+            titles = listOf(intent.getStringExtra(EXTRA_TITLE) ?: "")
+            savedIndex = 0
         }
-        videoUri = Uri.parse(uriStr)
 
-        savedPosition = savedInstanceState?.getLong(KEY_POS) ?: 0L
-        savedPlayWhenReady = savedInstanceState?.getBoolean(KEY_PLAY) ?: true
+        if (savedInstanceState != null) {
+            savedIndex = savedInstanceState.getInt(KEY_INDEX, savedIndex).coerceIn(0, uris.size - 1)
+            savedPosition = savedInstanceState.getLong(KEY_POS, 0L)
+            savedPlayWhenReady = savedInstanceState.getBoolean(KEY_PLAY, true)
+        }
 
         audio = getSystemService(AUDIO_SERVICE) as AudioManager
         playerView = findViewById(R.id.playerView)
         feedback = findViewById(R.id.feedback)
+        feedbackBox = findViewById(R.id.feedbackBox)
+        feedbackIcon = findViewById(R.id.feedbackIcon)
+        audioArt = findViewById(R.id.audioArt)
         topBar = findViewById(R.id.topBar)
+        bottomPanel = findViewById(R.id.bottomPanel)
+        titleView = findViewById(R.id.videoTitle)
+        seekBar = findViewById(R.id.seekBar)
+        posText = findViewById(R.id.posText)
+        durText = findViewById(R.id.durText)
+        btnPlay = findViewById(R.id.btnPlay)
+        btnPrev = findViewById(R.id.btnPrev)
+        btnNext = findViewById(R.id.btnNext)
+        aspectLabel = findViewById(R.id.aspectLabel)
+        rotateLabel = findViewById(R.id.rotateLabel)
 
-        btnAspect = findViewById(R.id.btnAspect)
-        aspectIndex = getSharedPreferences("settings", MODE_PRIVATE)
-            .getInt("aspect", 0).coerceIn(0, aspectModes.size - 1)
-        applyAspect(false)
-        btnAspect.setOnClickListener {
-            aspectIndex = (aspectIndex + 1) % aspectModes.size
-            getSharedPreferences("settings", MODE_PRIVATE).edit()
-                .putInt("aspect", aspectIndex).apply()
-            applyAspect(true)
+        if (isAudio) {
+            audioArt.visibility = View.VISIBLE
+            findViewById<View>(R.id.btnAspect).visibility = View.GONE
         }
 
-        findViewById<TextView>(R.id.videoTitle).text = intent.getStringExtra(EXTRA_TITLE) ?: ""
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
-
         playerView.keepScreenOn = true
-        playerView.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { vis ->
-            topBar.visibility = if (vis == View.VISIBLE) View.VISIBLE else View.GONE
-        })
 
+        setupControls()
         setupGestures()
         enterImmersive()
     }
@@ -104,33 +177,65 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         initPlayer()
+        handler.post(ticker)
+        scheduleAutoHide()
     }
 
     override fun onStop() {
         super.onStop()
+        handler.removeCallbacks(ticker)
         releasePlayer()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        handler.removeCallbacksAndMessages(null)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
+        outState.putInt(KEY_INDEX, player?.currentMediaItemIndex ?: savedIndex)
         outState.putLong(KEY_POS, player?.currentPosition ?: savedPosition)
         outState.putBoolean(KEY_PLAY, player?.playWhenReady ?: savedPlayWhenReady)
     }
 
+    // ---------- প্লেয়ার ----------
     private fun initPlayer() {
         if (player != null) return
+        val items = uris.mapIndexed { i, u ->
+            MediaItem.Builder()
+                .setUri(Uri.parse(u))
+                .setMediaMetadata(
+                    MediaMetadata.Builder().setTitle(titles.getOrElse(i) { "" }).build()
+                )
+                .build()
+        }
+        val start = savedIndex.coerceIn(0, items.size - 1)
+        titleView.text = titles.getOrElse(start) { "" }
+        btnPlay.setImageResource(if (savedPlayWhenReady) R.drawable.ic_pause else R.drawable.ic_play)
+
         player = ExoPlayer.Builder(this).build().also { p ->
             playerView.player = p
-            p.setMediaItem(MediaItem.fromUri(videoUri))
-            p.seekTo(savedPosition)
+            p.setMediaItems(items, start, savedPosition)
             p.playWhenReady = savedPlayWhenReady
             p.addListener(object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {
                     Toast.makeText(
                         this@PlayerActivity,
-                        "ভিডিও চালানো যাচ্ছে না: ${error.errorCodeName}",
+                        getString(R.string.err_play, error.errorCodeName),
                         Toast.LENGTH_LONG
                     ).show()
+                }
+
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    btnPlay.setImageResource(
+                        if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+                    )
+                }
+
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    titleView.text = mediaItem?.mediaMetadata?.title ?: ""
+                    updateProgress()
                 }
             })
             p.prepare()
@@ -139,6 +244,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun releasePlayer() {
         player?.let {
+            savedIndex = it.currentMediaItemIndex
             savedPosition = it.currentPosition
             savedPlayWhenReady = it.playWhenReady
             it.release()
@@ -147,11 +253,132 @@ class PlayerActivity : AppCompatActivity() {
         playerView.player = null
     }
 
+    private fun togglePlay() {
+        val p = player ?: return
+        if (p.isPlaying) {
+            p.pause()
+        } else {
+            if (p.playbackState == Player.STATE_ENDED) p.seekTo(0)
+            p.play()
+        }
+    }
+
+    // ---------- কন্ট্রোল বাটন ও সিকবার ----------
+    private fun setupControls() {
+        btnPlay.setOnClickListener { togglePlay(); scheduleAutoHide() }
+
+        btnPrev.setOnClickListener {
+            player?.let { if (it.hasPreviousMediaItem()) it.seekToPreviousMediaItem() else it.seekTo(0) }
+            scheduleAutoHide()
+        }
+        btnNext.setOnClickListener {
+            player?.let { if (it.hasNextMediaItem()) it.seekToNextMediaItem() }
+            scheduleAutoHide()
+        }
+
+        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                if (fromUser) posText.text = progress.toLong().toTimeString()
+            }
+
+            override fun onStartTrackingTouch(sb: SeekBar) {
+                dragging = true
+                handler.removeCallbacks(autoHide)
+            }
+
+            override fun onStopTrackingTouch(sb: SeekBar) {
+                player?.seekTo(sb.progress.toLong())
+                dragging = false
+                scheduleAutoHide()
+            }
+        })
+
+        aspectIndex = getSharedPreferences("settings", MODE_PRIVATE)
+            .getInt("aspect", 0).coerceIn(0, aspectModes.size - 1)
+        applyAspect(false)
+        findViewById<View>(R.id.btnAspect).setOnClickListener {
+            aspectIndex = (aspectIndex + 1) % aspectModes.size
+            getSharedPreferences("settings", MODE_PRIVATE).edit()
+                .putInt("aspect", aspectIndex).apply()
+            applyAspect(true)
+            scheduleAutoHide()
+        }
+
+        rotationIndex = getSharedPreferences("settings", MODE_PRIVATE)
+            .getInt("rotation", 0).coerceIn(0, rotationModes.size - 1)
+        applyRotation(false)
+        findViewById<View>(R.id.btnRotate).setOnClickListener {
+            rotationIndex = (rotationIndex + 1) % rotationModes.size
+            getSharedPreferences("settings", MODE_PRIVATE).edit()
+                .putInt("rotation", rotationIndex).apply()
+            applyRotation(true)
+            scheduleAutoHide()
+        }
+    }
+
+    private fun updateProgress() {
+        val p = player ?: return
+        btnPrev.alpha = if (p.hasPreviousMediaItem()) 1f else 0.4f
+        btnNext.alpha = if (p.hasNextMediaItem()) 1f else 0.4f
+        if (!controlsVisible || dragging) return
+        val dur = if (p.duration == C.TIME_UNSET) 0L else p.duration.coerceAtLeast(0L)
+        seekBar.max = dur.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        seekBar.progress = p.currentPosition.coerceIn(0L, dur).toInt()
+        seekBar.secondaryProgress = p.bufferedPosition.coerceIn(0L, dur).toInt()
+        posText.text = p.currentPosition.coerceAtLeast(0L).toTimeString()
+        durText.text = dur.toTimeString()
+    }
+
+    // ---------- অ্যানিমেটেড কন্ট্রোল প্যানেল (ভিডিও ফ্রেম অপরিবর্তিত থাকে) ----------
+    private fun scheduleAutoHide() {
+        handler.removeCallbacks(autoHide)
+        handler.postDelayed(autoHide, 3500)
+    }
+
+    private fun showControls() {
+        controlsVisible = true
+        updateProgress()
+        topBar.animate().cancel()
+        bottomPanel.animate().cancel()
+        topBar.visibility = View.VISIBLE
+        bottomPanel.visibility = View.VISIBLE
+        topBar.animate().alpha(1f).translationY(0f)
+            .setDuration(240).setInterpolator(DecelerateInterpolator()).start()
+        bottomPanel.animate().alpha(1f).translationY(0f)
+            .setDuration(240).setInterpolator(DecelerateInterpolator()).start()
+        scheduleAutoHide()
+    }
+
+    private fun hideControls() {
+        controlsVisible = false
+        handler.removeCallbacks(autoHide)
+        topBar.animate().cancel()
+        bottomPanel.animate().cancel()
+        topBar.animate().alpha(0f).translationY(-topBar.height * 0.5f)
+            .setDuration(220).withEndAction {
+                if (!controlsVisible) topBar.visibility = View.GONE
+            }.start()
+        bottomPanel.animate().alpha(0f).translationY(bottomPanel.height * 0.5f)
+            .setDuration(220).withEndAction {
+                if (!controlsVisible) bottomPanel.visibility = View.GONE
+            }.start()
+    }
+
     private fun applyAspect(announce: Boolean) {
         playerView.resizeMode = aspectModes[aspectIndex]
-        btnAspect.text = aspectNames[aspectIndex]
+        aspectLabel.text = aspectNames[aspectIndex]
         if (announce) {
-            show("▭ ${aspectNames[aspectIndex]}")
+            show(aspectNames[aspectIndex], R.drawable.ic_aspect)
+            handler.removeCallbacks(hideFeedback)
+            handler.postDelayed(hideFeedback, 700)
+        }
+    }
+
+    private fun applyRotation(announce: Boolean) {
+        requestedOrientation = rotationModes[rotationIndex]
+        rotateLabel.text = rotationNames[rotationIndex]
+        if (announce) {
+            show(rotationNames[rotationIndex], R.drawable.ic_rotate)
             handler.removeCallbacks(hideFeedback)
             handler.postDelayed(hideFeedback, 700)
         }
@@ -177,8 +404,8 @@ class PlayerActivity : AppCompatActivity() {
             override fun onDown(e: MotionEvent) = true
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                if (playerView.isControllerFullyVisible) playerView.hideController()
-                else playerView.showController()
+                if (isAudio) return true
+                if (controlsVisible) hideControls() else showControls()
                 return true
             }
 
@@ -215,7 +442,7 @@ class PlayerActivity : AppCompatActivity() {
                         val cur = if (lp.screenBrightness < 0) 0.5f else lp.screenBrightness
                         lp.screenBrightness = (cur + dy / playerView.height).coerceIn(0.02f, 1f)
                         window.attributes = lp
-                        show("🔆 ${(lp.screenBrightness * 100).toInt()}%")
+                        show("${(lp.screenBrightness * 100).toInt()}%", R.drawable.ic_brightness)
                     }
                     Mode.VOLUME -> {
                         val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
@@ -228,7 +455,7 @@ class PlayerActivity : AppCompatActivity() {
                             volAccum -= steps
                         }
                         val now = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
-                        show("🔊 ${now * 100 / max}%")
+                        show("${now * 100 / max}%", R.drawable.ic_volume)
                     }
                     else -> {}
                 }
@@ -257,20 +484,34 @@ class PlayerActivity : AppCompatActivity() {
         val p = player ?: return
         val dur = if (p.duration == C.TIME_UNSET) Long.MAX_VALUE else p.duration
         p.seekTo((p.currentPosition + ms).coerceIn(0, dur))
-        show(if (ms > 0) "⏩ +${ms / 1000}s" else "⏪ −${abs(ms) / 1000}s")
+        show(
+            if (ms > 0) "+${ms / 1000}s" else "−${abs(ms) / 1000}s",
+            if (ms > 0) R.drawable.ic_forward else R.drawable.ic_rewind
+        )
         handler.removeCallbacks(hideFeedback)
         handler.postDelayed(hideFeedback, 600)
     }
 
-    private fun show(text: String) {
+    private fun show(text: String, icon: Int? = null) {
         handler.removeCallbacks(hideFeedback)
         feedback.text = text
-        feedback.visibility = View.VISIBLE
+        if (icon != null) {
+            feedbackIcon.setImageResource(icon)
+            feedbackIcon.visibility = View.VISIBLE
+        } else {
+            feedbackIcon.visibility = View.GONE
+        }
+        feedbackBox.visibility = View.VISIBLE
     }
 
     companion object {
         const val EXTRA_URI = "extra_uri"
         const val EXTRA_TITLE = "extra_title"
+        const val EXTRA_URIS = "extra_uris"
+        const val EXTRA_TITLES = "extra_titles"
+        const val EXTRA_INDEX = "extra_index"
+        const val EXTRA_AUDIO = "extra_audio"
+        private const val KEY_INDEX = "key_index"
         private const val KEY_POS = "key_pos"
         private const val KEY_PLAY = "key_play"
     }
