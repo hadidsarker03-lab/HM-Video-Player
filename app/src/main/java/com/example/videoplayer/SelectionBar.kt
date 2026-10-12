@@ -14,8 +14,8 @@ class SelectionBar(
     private val act: MediaActivity,
     root: LinearLayout,
     private val adapter: VideoAdapter,
-    private val afterChange: () -> Unit,
-    private val privateMode: Boolean = false
+    private val privateMode: Boolean = false,
+    private val afterChange: () -> Unit
 ) {
     private val bar = LinearLayout(act)
     private val count = TextView(act)

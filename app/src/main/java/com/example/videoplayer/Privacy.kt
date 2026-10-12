@@ -236,12 +236,13 @@ object PrivacyOps {
                     val meta = queryMeta(app, v.uri)
                     val ext = if (meta.name.contains('.')) "." + meta.name.substringAfterLast('.') else ""
                     val fname = UUID.randomUUID().toString() + ext
-                    out = File(PrivacyStore.dir(app), fname)
+                    val target = File(PrivacyStore.dir(app), fname)
+                    out = target
                     app.contentResolver.openInputStream(v.uri)!!.use { i ->
-                        out.outputStream().use { o -> i.copyTo(o) }
+                        target.outputStream().use { o -> i.copyTo(o) }
                     }
-                    if (out.length() <= 0L || (v.size > 0 && out.length() != v.size)) {
-                        out.delete()
+                    if (target.length() <= 0L || (v.size > 0 && target.length() != v.size)) {
+                        target.delete()
                         continue
                     }
                     val mime = meta.mime.ifEmpty { if (v.isAudio) "audio/mpeg" else "video/mp4" }
@@ -430,7 +431,7 @@ class PrivacyActivity : MediaActivity() {
         )
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
-        selection = SelectionBar(this, findViewById(R.id.root), adapter, { render() }, privateMode = true)
+        selection = SelectionBar(this, findViewById(R.id.root), adapter, privateMode = true) { render() }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (selection.active()) selection.exit() else finish()
