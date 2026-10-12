@@ -13,4 +13,9 @@
     <color name="glass_surface_alt">#1A000000</color>
     <color name="glass_divider">#1F000000</color>
     <color name="dialog_bg">#FFFFFF</color>
+    <color name="nav_glass_top">#E6FFFFFF</color>
+    <color name="nav_glass_bottom">#A8EEF0F3</color>
+    <color name="nav_glass_gloss">#80FFFFFF</color>
+    <color name="nav_glass_stroke">#CCFFFFFF</color>
+    <color name="nav_indicator">#2916A34A</color>
 </resources>

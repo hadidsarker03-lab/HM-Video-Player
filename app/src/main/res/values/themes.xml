@@ -53,4 +53,11 @@
     <style name="Theme.HMPlayer.Starting">
         <item name="android:windowBackground">@drawable/bg_splash</item>
     </style>
+
+    <!-- নিচের ট্যাববারের সিলেক্টেড পিল -->
+    <style name="HMNavIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/nav_indicator</item>
+        <item name="android:width">72dp</item>
+        <item name="android:height">34dp</item>
+    </style>
 </resources>

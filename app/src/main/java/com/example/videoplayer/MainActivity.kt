@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.ImageView
@@ -98,7 +99,7 @@ class MainActivity : MediaActivity() {
         }
 
         setContentView(R.layout.activity_main)
-        UiKit.applyInsets(this, findViewById(R.id.root), findViewById(R.id.headerRow), false)
+        UiKit.applyInsets(this, findViewById(R.id.root), findViewById(R.id.headerRow), true)
 
         titleView = findViewById(R.id.title)
         searchBar = findViewById(R.id.searchBar)
@@ -308,13 +309,20 @@ class MainActivity : MediaActivity() {
             val tv = TextView(this)
             tv.setText(res)
             tv.textSize = 16f
-            tv.typeface = android.graphics.Typeface.create(
-                "sans-serif-medium", android.graphics.Typeface.NORMAL
-            )
+            // সিস্টেম ফন্টের ওজন বদলালেও লেখা যেন না কাটে: ডিফল্ট ফন্ট + নিজস্ব ন্যূনতম প্রস্থ
+            tv.typeface = if (selected) android.graphics.Typeface.DEFAULT_BOLD
+            else android.graphics.Typeface.DEFAULT
+            tv.setSingleLine(true)
+            tv.ellipsize = null
+            tv.includeFontPadding = true
+            tv.setPadding(UiKit.dp(this, 3), 0, UiKit.dp(this, 3), 0)
+            tv.minWidth = (tv.paint.measureText(getString(res)) * 1.15f).toInt() + UiKit.dp(this, 8)
             tv.setTextColor(
                 ContextCompat.getColor(this, if (selected) R.color.accent else R.color.text_primary)
             )
-            cell.addView(tv)
+            cell.addView(tv, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ))
 
             val bar = View(this)
             bar.setBackgroundResource(R.drawable.bg_indicator)
