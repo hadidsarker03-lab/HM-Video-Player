@@ -1,7 +1,30 @@
 package com.example.videoplayer
 
 import android.annotation.SuppressLint
+import android.app.PictureInPictureParams
 import android.content.ComponentName
+import android.content.ContentValues
+import android.content.Context
+import android.content.res.ColorStateList
+import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.provider.MediaStore
+import android.util.Rational
+import android.view.TextureView
+import android.view.ViewGroup
+import android.widget.CheckBox
+import android.widget.HorizontalScrollView
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import androidx.activity.OnBackPressedCallback
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
+import androidx.media3.transformer.Composition
+import androidx.media3.transformer.EditedMediaItem
+import androidx.media3.transformer.ExportException
+import androidx.media3.transformer.ExportResult
+import androidx.media3.transformer.Transformer
+import java.io.File
 import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.net.Uri
@@ -28,6 +51,8 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.VideoSize
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -46,8 +71,14 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var topBar: View
     private lateinit var bottomPanel: View
     private lateinit var titleView: TextView
-    private lateinit var aspectLabel: TextView
-    private lateinit var rotateLabel: TextView
+    private lateinit var shortcutRow: LinearLayout
+    private lateinit var shortcutScroll: View
+    private lateinit var nightOverlay: View
+    private lateinit var morePanel: View
+    private lateinit var morePanelContent: LinearLayout
+    private lateinit var btnLock: ImageView
+    private lateinit var btnUnlock: ImageView
+    private lateinit var hwLabel: TextView
     private lateinit var seekBar: SeekBar
     private lateinit var posText: TextView
     private lateinit var durText: TextView
@@ -90,20 +121,37 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    // ফ্রেম মোড: Full / Stretch / Crop
-    private val aspectModes = intArrayOf(
-        AspectRatioFrameLayout.RESIZE_MODE_FIT,
-        AspectRatioFrameLayout.RESIZE_MODE_FILL,
-        AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-    )
+    // ফ্রেম মোড: Fill screen (ক্যামেরা/নচসহ পুরো ডিসপ্লে ভরে) / Fit / Stretch
     private val aspectNames by lazy {
         arrayOf(
-            getString(R.string.aspect_full),
-            getString(R.string.aspect_stretch),
-            getString(R.string.aspect_crop)
+            getString(R.string.aspect_fill),
+            getString(R.string.aspect_fit),
+            getString(R.string.aspect_stretch)
         )
     }
     private var aspectIndex = 0
+
+    // নতুন ফিচারের অবস্থা
+    private var locked = false
+    private var inPip = false
+    private var nightOn = false
+    private var mirrorOn = false
+    private var flipOn = false
+    private var abA = -1L
+    private var abB = -1L
+    private var cutting = false
+    private val shortcutViews = HashMap<Shortcut, View>()
+    private var favCell: View? = null
+    private val hideUnlock = Runnable { if (locked) btnUnlock.visibility = View.GONE }
+    private val abRun = object : Runnable {
+        override fun run() {
+            val p = player
+            if (p != null && abA >= 0 && abB > abA) {
+                if (p.currentPosition >= abB || p.currentPosition < abA - 300) p.seekTo(abA)
+                handler.postDelayed(this, 120)
+            }
+        }
+    }
 
     // রোটেশন মোড: Auto / Landscape / Portrait
     private val rotationModes = intArrayOf(
@@ -138,6 +186,15 @@ class PlayerActivity : AppCompatActivity() {
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             btnPlay.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+        }
+
+        override fun onRepeatModeChanged(repeatMode: Int) = updateShortcutStates()
+        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = updateShortcutStates()
+        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) =
+            updateShortcutStates()
+        override fun onVolumeChanged(volume: Float) = updateShortcutStates()
+        override fun onVideoSizeChanged(videoSize: VideoSize) {
+            if (aspectIndex == 0) applyAspect(false)
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -202,17 +259,43 @@ class PlayerActivity : AppCompatActivity() {
         btnPlay = findViewById(R.id.btnPlay)
         btnPrev = findViewById(R.id.btnPrev)
         btnNext = findViewById(R.id.btnNext)
-        aspectLabel = findViewById(R.id.aspectLabel)
-        rotateLabel = findViewById(R.id.rotateLabel)
+        shortcutRow = findViewById(R.id.shortcutRow)
+        shortcutScroll = findViewById(R.id.shortcutScroll)
+        nightOverlay = findViewById(R.id.nightOverlay)
+        morePanel = findViewById(R.id.morePanel)
+        morePanelContent = findViewById(R.id.morePanelContent)
+        btnLock = findViewById(R.id.btnLock)
+        btnUnlock = findViewById(R.id.btnUnlock)
+        hwLabel = findViewById(R.id.hwLabel)
 
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
         playerView.keepScreenOn = true
 
         applyAudioMode()
         setupControls()
+        setupTopBar()
+        buildShortcuts()
+        buildMorePanel()
         setupGestures()
         enterImmersive()
         applyCutoutInsets()
+
+        nightOn = AppSettings.nightMode(this)
+        nightOverlay.visibility = if (nightOn) View.VISIBLE else View.GONE
+        updateShortcutStates()
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    locked -> revealUnlock()
+                    morePanel.visibility == View.VISIBLE -> hidePanel()
+                    else -> {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    }
+                }
+            }
+        })
     }
 
     override fun onStart() {
@@ -226,6 +309,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         handler.removeCallbacks(ticker)
+        handler.removeCallbacks(abRun)
         releaseController()
     }
 
@@ -273,6 +357,10 @@ class PlayerActivity : AppCompatActivity() {
             loadItems(c)
         }
         onItemChanged(c.currentMediaItem)
+        applyVideoDisplay()
+        applyFlip()
+        updateShortcutStates()
+        if (abA >= 0 && abB > abA) handler.post(abRun)
         btnPlay.setImageResource(
             if (c.isPlaying || c.playWhenReady) R.drawable.ic_pause else R.drawable.ic_play
         )
@@ -309,6 +397,13 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun onItemChanged(item: MediaItem?) {
         titleView.text = item?.mediaMetadata?.title ?: ""
+        // নতুন ভিডিওতে গেলে A - B রিপিট বন্ধ হয়
+        if (abA >= 0) {
+            abA = -1L
+            abB = -1L
+            handler.removeCallbacks(abRun)
+            updateShortcutStates()
+        }
         val audioFlag = item?.mediaMetadata?.extras?.getBoolean(META_AUDIO, false)
         if (audioFlag != null && audioFlag != isAudio) {
             isAudio = audioFlag
@@ -317,8 +412,18 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun applyAudioMode() {
-        audioArt.visibility = if (isAudio) View.VISIBLE else View.GONE
+        audioArt.visibility =
+            if (isAudio || !AppSettings.videoDisplay(this)) View.VISIBLE else View.GONE
         findViewById<View>(R.id.btnAspect).visibility = if (isAudio) View.GONE else View.VISIBLE
+    }
+
+    // "Video Display" বন্ধ থাকলে ভিডিও ট্র্যাক বন্ধ হয়, শুধু শব্দ চলে
+    private fun applyVideoDisplay() {
+        val p = player ?: return
+        val on = AppSettings.videoDisplay(this) || isAudio
+        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, !on).build()
+        applyAudioMode()
     }
 
     // স্ক্রিন ছাড়লে: ব্যাকগ্রাউন্ড প্লে চালু থাকলে গান/ভিডিওর শব্দ চলতে থাকে
@@ -394,27 +499,616 @@ class PlayerActivity : AppCompatActivity() {
             }
         })
 
-        aspectIndex = getSharedPreferences("settings", MODE_PRIVATE)
-            .getInt("aspect", 0).coerceIn(0, aspectModes.size - 1)
+        aspectIndex = AppSettings.prefs(this).getInt("aspect2", 0).coerceIn(0, 2)
         applyAspect(false)
         findViewById<View>(R.id.btnAspect).setOnClickListener {
-            aspectIndex = (aspectIndex + 1) % aspectModes.size
-            getSharedPreferences("settings", MODE_PRIVATE).edit()
-                .putInt("aspect", aspectIndex).apply()
-            applyAspect(true)
+            cycleAspect()
             scheduleAutoHide()
+        }
+        playerView.addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+            if (aspectIndex == 0 &&
+                (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop)
+            ) applyAspect(false)
         }
 
-        rotationIndex = getSharedPreferences("settings", MODE_PRIVATE)
-            .getInt("rotation", 0).coerceIn(0, rotationModes.size - 1)
+        rotationIndex = AppSettings.prefs(this).getInt("rotation", 0).coerceIn(0, rotationModes.size - 1)
         applyRotation(false)
-        findViewById<View>(R.id.btnRotate).setOnClickListener {
-            rotationIndex = (rotationIndex + 1) % rotationModes.size
-            getSharedPreferences("settings", MODE_PRIVATE).edit()
-                .putInt("rotation", rotationIndex).apply()
-            applyRotation(true)
+
+        btnLock.setOnClickListener { setLocked(true) }
+        btnUnlock.setOnClickListener { setLocked(false) }
+        findViewById<View>(R.id.btnPip).setOnClickListener { enterPip() }
+    }
+
+    // ---------- উপরের বাটন ----------
+    private fun setupTopBar() {
+        findViewById<View>(R.id.btnAudioTrack).setOnClickListener {
+            player?.let { PlayerDialogs.tracks(this, it, C.TRACK_TYPE_AUDIO) }
             scheduleAutoHide()
         }
+        findViewById<View>(R.id.btnSubtitle).setOnClickListener {
+            player?.let { PlayerDialogs.tracks(this, it, C.TRACK_TYPE_TEXT) }
+            scheduleAutoHide()
+        }
+        hwLabel.setOnClickListener {
+            Toast.makeText(this, R.string.hw_toast, Toast.LENGTH_SHORT).show()
+        }
+        findViewById<View>(R.id.btnMore).setOnClickListener { showPanel() }
+    }
+
+    private fun cycleAspect() {
+        aspectIndex = (aspectIndex + 1) % 3
+        AppSettings.prefs(this).edit().putInt("aspect2", aspectIndex).apply()
+        applyAspect(true)
+    }
+
+    // ---------- শর্টকাট সারি ----------
+    private fun buildShortcuts() {
+        shortcutRow.removeAllViews()
+        shortcutViews.clear()
+        shortcutScroll.visibility = if (AppSettings.shortcutsOn(this)) View.VISIBLE else View.GONE
+        val hidden = AppSettings.hiddenShortcuts(this)
+        for (s in Shortcut.values()) {
+            if (s.key in hidden) continue
+            val v = layoutInflater.inflate(R.layout.item_shortcut, shortcutRow, false)
+            v.findViewById<ImageView>(R.id.scIcon).setImageResource(s.icon)
+            v.findViewById<TextView>(R.id.scLabel).setText(s.label)
+            v.setOnClickListener {
+                onShortcut(s)
+                scheduleAutoHide()
+            }
+            shortcutRow.addView(v)
+            shortcutViews[s] = v
+        }
+        updateShortcutStates()
+    }
+
+    private fun mark(s: Shortcut, on: Boolean) {
+        shortcutViews[s]?.findViewById<View>(R.id.scCircle)?.isSelected = on
+    }
+
+    private fun updateShortcutStates() {
+        if (!::shortcutRow.isInitialized) return
+        val p = player
+        mark(Shortcut.NIGHT, nightOn)
+        mark(Shortcut.SHUFFLE, p?.shuffleModeEnabled == true)
+        val rep = p?.repeatMode ?: Player.REPEAT_MODE_OFF
+        mark(Shortcut.LOOP, rep != Player.REPEAT_MODE_OFF)
+        shortcutViews[Shortcut.LOOP]?.findViewById<ImageView>(R.id.scIcon)?.setImageResource(
+            if (rep == Player.REPEAT_MODE_ONE) R.drawable.ic_repeat_one else R.drawable.ic_repeat
+        )
+        mark(Shortcut.MUTE, p != null && p.volume == 0f)
+        mark(Shortcut.SLEEP, SleepTimer.active())
+        mark(Shortcut.AB, abA >= 0)
+        mark(Shortcut.EQ, AppSettings.eqOn(this))
+        mark(Shortcut.BGPLAY, AppSettings.backgroundPlay(this))
+        mark(Shortcut.MIRROR, mirrorOn)
+        mark(Shortcut.VFLIP, flipOn)
+        // স্পিড: আইকনের জায়গায় "1X" লেখা
+        shortcutViews[Shortcut.SPEED]?.let { v ->
+            v.findViewById<View>(R.id.scIcon).visibility = View.GONE
+            val tx = v.findViewById<TextView>(R.id.scText)
+            tx.visibility = View.VISIBLE
+            tx.text = p?.safeSpeedLabel() ?: "1X"
+            mark(Shortcut.SPEED, p != null && p.playbackParameters.speed != 1f)
+        }
+    }
+
+    private fun onShortcut(s: Shortcut) {
+        val p = player
+        when (s) {
+            Shortcut.NIGHT -> toggleNight()
+            Shortcut.CUSTOMISE -> showCustomise()
+            Shortcut.SHUFFLE -> p?.let {
+                it.shuffleModeEnabled = !it.shuffleModeEnabled
+                flash(getString(if (it.shuffleModeEnabled) R.string.shuffle_on else R.string.shuffle_off),
+                    R.drawable.ic_shuffle)
+            }
+            Shortcut.LOOP -> p?.let {
+                val next = when (it.repeatMode) {
+                    Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ONE
+                    Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_ALL
+                    else -> Player.REPEAT_MODE_OFF
+                }
+                it.repeatMode = next
+                flash(
+                    getString(
+                        when (next) {
+                            Player.REPEAT_MODE_ONE -> R.string.loop_one
+                            Player.REPEAT_MODE_ALL -> R.string.loop_all
+                            else -> R.string.loop_off
+                        }
+                    ),
+                    if (next == Player.REPEAT_MODE_ONE) R.drawable.ic_repeat_one else R.drawable.ic_repeat
+                )
+            }
+            Shortcut.MUTE -> p?.let {
+                val mute = it.volume != 0f
+                it.volume = if (mute) 0f else 1f
+                flash(getString(if (mute) R.string.muted else R.string.unmuted), R.drawable.ic_volume_off)
+            }
+            Shortcut.SLEEP -> PlayerDialogs.sleep(this) { updateShortcutStates() }
+            Shortcut.AB -> toggleAB()
+            Shortcut.AUDIO_FX -> PlayerDialogs.audioEffect(this)
+            Shortcut.EQ -> PlayerDialogs.equalizer(this) { updateShortcutStates() }
+            Shortcut.SPEED -> p?.let { PlayerDialogs.speed(this, it) { updateShortcutStates() } }
+            Shortcut.SCREENSHOT -> takeScreenshot()
+            Shortcut.BGPLAY -> {
+                val on = !AppSettings.backgroundPlay(this)
+                AppSettings.setBackgroundPlay(this, on)
+                flash(getString(if (on) R.string.bgplay_on else R.string.bgplay_off), R.drawable.ic_headset)
+                updateShortcutStates()
+            }
+            Shortcut.ROTATION -> {
+                rotationIndex = (rotationIndex + 1) % rotationModes.size
+                AppSettings.prefs(this).edit().putInt("rotation", rotationIndex).apply()
+                applyRotation(true)
+            }
+            Shortcut.MIRROR -> {
+                mirrorOn = !mirrorOn
+                applyFlip()
+                flash(getString(if (mirrorOn) R.string.mirror_on else R.string.mirror_off), R.drawable.ic_flip)
+                updateShortcutStates()
+            }
+            Shortcut.VFLIP -> {
+                flipOn = !flipOn
+                applyFlip()
+                flash(getString(if (flipOn) R.string.flip_on else R.string.flip_off), R.drawable.ic_flip_v)
+                updateShortcutStates()
+            }
+        }
+    }
+
+    private fun toggleNight() {
+        nightOn = !nightOn
+        AppSettings.setNightMode(this, nightOn)
+        nightOverlay.visibility = if (nightOn) View.VISIBLE else View.GONE
+        flash(getString(if (nightOn) R.string.night_on else R.string.night_off), R.drawable.ic_night)
+        updateShortcutStates()
+    }
+
+    private fun applyFlip() {
+        val v = playerView.videoSurfaceView ?: return
+        v.scaleX = if (mirrorOn) -1f else 1f
+        v.scaleY = if (flipOn) -1f else 1f
+    }
+
+    // A - B রিপিট: ১ম ট্যাপ A, ২য় ট্যাপ B (লুপ শুরু), ৩য় ট্যাপ বন্ধ
+    private fun toggleAB() {
+        val p = player ?: return
+        when {
+            abA < 0 -> {
+                abA = p.currentPosition
+                flash(getString(R.string.ab_a, abA.toTimeString()), R.drawable.ic_ab_repeat)
+            }
+            abB < 0 -> {
+                if (p.currentPosition <= abA + 500) return
+                abB = p.currentPosition
+                p.seekTo(abA)
+                handler.removeCallbacks(abRun)
+                handler.post(abRun)
+                flash(getString(R.string.ab_on), R.drawable.ic_ab_repeat)
+            }
+            else -> {
+                abA = -1L
+                abB = -1L
+                handler.removeCallbacks(abRun)
+                flash(getString(R.string.ab_off), R.drawable.ic_ab_repeat)
+            }
+        }
+        updateShortcutStates()
+    }
+
+    // "Customise Items" ও প্যানেলের চেকবক্স: কোন শর্টকাট দেখাবে
+    private fun showCustomise() {
+        val all = Shortcut.values()
+        val hidden = AppSettings.hiddenShortcuts(this)
+        val labels = all.map { getString(it.label) }.toTypedArray()
+        val checked = BooleanArray(all.size) { all[it].key !in hidden }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.customise_title)
+            .setMultiChoiceItems(labels, checked) { _, which, on -> checked[which] = on }
+            .setPositiveButton(R.string.btn_apply) { _, _ ->
+                val newHidden = all.filterIndexed { i, _ -> !checked[i] }.map { it.key }.toSet()
+                AppSettings.setHiddenShortcuts(this, newHidden)
+                buildShortcuts()
+                buildMorePanel()
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    // ---------- স্ক্রিনশট ----------
+    private fun takeScreenshot() {
+        val bmp = (playerView.videoSurfaceView as? TextureView)?.bitmap
+        if (bmp == null || !saveImage(bmp)) {
+            Toast.makeText(this, R.string.screenshot_fail, Toast.LENGTH_SHORT).show()
+        } else {
+            flash(getString(R.string.screenshot_saved), R.drawable.ic_screenshot)
+        }
+    }
+
+    private fun saveImage(bmp: Bitmap): Boolean {
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "HM_${System.currentTimeMillis()}.png")
+            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/HM Video Player")
+            }
+        }
+        return try {
+            val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                ?: return false
+            contentResolver.openOutputStream(uri)?.use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                ?: false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // ---------- লক ও পিকচার-ইন-পিকচার ----------
+    private fun setLocked(on: Boolean) {
+        locked = on
+        handler.removeCallbacks(hideUnlock)
+        if (on) {
+            hidePanel()
+            hideControls()
+            btnUnlock.visibility = View.VISIBLE
+            handler.postDelayed(hideUnlock, 2500)
+            flash(getString(R.string.locked), R.drawable.ic_lock)
+            handler.removeCallbacks(hideFeedback)
+            handler.postDelayed(hideFeedback, 900)
+        } else {
+            btnUnlock.visibility = View.GONE
+            showControls()
+        }
+    }
+
+    private fun revealUnlock() {
+        btnUnlock.visibility = View.VISIBLE
+        handler.removeCallbacks(hideUnlock)
+        handler.postDelayed(hideUnlock, 2500)
+    }
+
+    private fun enterPip() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+            !packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)
+        ) {
+            Toast.makeText(this, R.string.pip_unsupported, Toast.LENGTH_SHORT).show()
+            return
+        }
+        hidePanel()
+        hideControls()
+        enterPictureInPictureMode(
+            PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).build()
+        )
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean, newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        inPip = isInPictureInPictureMode
+        if (inPip) {
+            hidePanel()
+            controlsVisible = false
+            topBar.visibility = View.GONE
+            bottomPanel.visibility = View.GONE
+        } else {
+            showControls()
+        }
+    }
+
+    // ---------- ডান পাশের "আরও" প্যানেল ----------
+    private class Cell(val icon: Int, val label: Int, val action: () -> Unit)
+
+    private fun buildMorePanel() {
+        val c = morePanelContent
+        c.removeAllViews()
+        favCell = null
+        val cells = listOf(
+            Cell(R.drawable.ic_queue, R.string.p_queue) {
+                hidePanel(); player?.let { PlayerDialogs.queue(this, it) }
+            },
+            Cell(R.drawable.ic_aspect, R.string.p_aspect) { cycleAspect() },
+            Cell(R.drawable.ic_tune, R.string.p_display) { hidePanel(); showDisplaySettings() },
+            Cell(R.drawable.ic_bookmark, R.string.p_bookmark) {
+                hidePanel(); player?.let { PlayerDialogs.bookmarks(this, it) }
+            },
+            Cell(R.drawable.ic_cut, R.string.p_cut) { hidePanel(); showCut() },
+            Cell(R.drawable.ic_favorite, R.string.p_fav) { toggleFavourite() },
+            Cell(R.drawable.ic_playlist_add, R.string.p_playlist) {
+                hidePanel()
+                currentVideo()?.let { MediaActions.addToPlaylist(this, it) } ?: notAvailable()
+            },
+            Cell(R.drawable.ic_info, R.string.p_info) {
+                hidePanel()
+                currentVideo()?.let { MediaActions.details(this, it) } ?: notAvailable()
+            },
+            Cell(R.drawable.ic_share, R.string.p_share) {
+                hidePanel()
+                currentVideo()?.let { MediaActions.share(this, it) } ?: notAvailable()
+            },
+            Cell(R.drawable.ic_bulb, R.string.p_tutorial) {
+                hidePanel(); PlayerDialogs.tutorial(this)
+            },
+            Cell(R.drawable.ic_chevron, R.string.p_more) { hidePanel(); showMore() }
+        )
+        for (rowCells in cells.chunked(4)) {
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            for (cell in rowCells) {
+                val v = layoutInflater.inflate(R.layout.item_shortcut, row, false)
+                v.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                v.findViewById<ImageView>(R.id.scIcon).setImageResource(cell.icon)
+                v.findViewById<TextView>(R.id.scLabel).setText(cell.label)
+                v.setOnClickListener { cell.action() }
+                if (cell.label == R.string.p_fav) favCell = v
+                row.addView(v)
+            }
+            // শেষ সারিতে ফাঁকা ঘর, যাতে ঘরগুলো সমান চওড়া থাকে
+            repeat(4 - rowCells.size) {
+                row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+            }
+            c.addView(row)
+        }
+
+        c.addView(switchRow(R.string.p_video_display, AppSettings.videoDisplay(this)) { on ->
+            AppSettings.setVideoDisplay(this, on)
+            applyVideoDisplay()
+        })
+
+        val checkGrid = LinearLayout(this)
+        checkGrid.orientation = LinearLayout.VERTICAL
+        checkGrid.setBackgroundResource(R.drawable.bg_check_box)
+        checkGrid.setPadding(UiKit.dp(this, 8), UiKit.dp(this, 6), UiKit.dp(this, 8), UiKit.dp(this, 6))
+        checkGrid.visibility = if (AppSettings.shortcutsOn(this)) View.VISIBLE else View.GONE
+        val hidden = AppSettings.hiddenShortcuts(this).toMutableSet()
+        for (pair in Shortcut.values().toList().chunked(2)) {
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            for (s in pair) {
+                val cb = CheckBox(this)
+                cb.text = getString(s.label)
+                cb.setTextColor(0xFFFFFFFF.toInt())
+                cb.textSize = 14f
+                cb.buttonTintList = ColorStateList.valueOf(0xFF5DB8FF.toInt())
+                cb.isChecked = s.key !in hidden
+                cb.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                cb.setOnCheckedChangeListener { _, on ->
+                    if (on) hidden.remove(s.key) else hidden.add(s.key)
+                    AppSettings.setHiddenShortcuts(this, hidden)
+                    buildShortcuts()
+                }
+                row.addView(cb)
+            }
+            if (pair.size == 1) row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+            checkGrid.addView(row)
+        }
+        c.addView(switchRow(R.string.p_shortcuts, AppSettings.shortcutsOn(this)) { on ->
+            AppSettings.setShortcutsOn(this, on)
+            checkGrid.visibility = if (on) View.VISIBLE else View.GONE
+            shortcutScroll.visibility = if (on) View.VISIBLE else View.GONE
+        })
+        c.addView(checkGrid)
+    }
+
+    private fun switchRow(label: Int, checked: Boolean, onChange: (Boolean) -> Unit): View {
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.gravity = android.view.Gravity.CENTER_VERTICAL
+        row.setPadding(UiKit.dp(this, 6), UiKit.dp(this, 14), UiKit.dp(this, 6), UiKit.dp(this, 8))
+        val tx = TextView(this)
+        tx.setText(label)
+        tx.setTextColor(0xFFFFFFFF.toInt())
+        tx.textSize = 16f
+        tx.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        val sw = MaterialSwitch(this)
+        sw.isChecked = checked
+        sw.setOnCheckedChangeListener { _, on -> onChange(on) }
+        row.addView(tx)
+        row.addView(sw)
+        return row
+    }
+
+    private fun showPanel() {
+        refreshPanel()
+        hideControls()
+        morePanel.animate().cancel()
+        morePanel.visibility = View.VISIBLE
+        morePanel.translationX = UiKit.dp(this, 360).toFloat()
+        morePanel.animate().translationX(0f).setDuration(220)
+            .setInterpolator(DecelerateInterpolator()).start()
+    }
+
+    private fun hidePanel() {
+        if (morePanel.visibility != View.VISIBLE) return
+        morePanel.animate().cancel()
+        morePanel.animate().translationX(UiKit.dp(this, 360).toFloat()).setDuration(180)
+            .withEndAction { morePanel.visibility = View.GONE }.start()
+    }
+
+    private fun refreshPanel() {
+        val v = currentVideo()
+        favCell?.findViewById<View>(R.id.scCircle)?.isSelected =
+            v != null && Store.isFav(this, v.isAudio, v.id)
+    }
+
+    private fun currentVideo(): Video? {
+        val id = player?.currentMediaItem?.mediaId ?: return null
+        return (Library.videos + Library.audios).firstOrNull { it.uri.toString() == id }
+    }
+
+    private fun notAvailable() {
+        Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun toggleFavourite() {
+        val v = currentVideo()
+        if (v == null) {
+            notAvailable()
+            return
+        }
+        Store.toggleFav(this, v.isAudio, v.id)
+        refreshPanel()
+    }
+
+    // ডিসপ্লে সেটিংস: ব্রাইটনেস, নাইট মোড, মিরর, ভার্টিক্যাল ফ্লিপ
+    private fun showDisplaySettings() {
+        val pad = UiKit.dp(this, 22)
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        box.setPadding(pad, UiKit.dp(this, 8), pad, 0)
+        val lbl = TextView(this)
+        lbl.setText(R.string.display_brightness)
+        box.addView(lbl)
+        val bar = SeekBar(this)
+        bar.max = 100
+        val lp = window.attributes
+        bar.progress = ((if (lp.screenBrightness < 0) 0.5f else lp.screenBrightness) * 100).toInt()
+        bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                val a = window.attributes
+                a.screenBrightness = (progress / 100f).coerceIn(0.02f, 1f)
+                window.attributes = a
+            }
+
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {}
+        })
+        box.addView(bar)
+        fun sw(label: Int, on: Boolean, change: (Boolean) -> Unit) {
+            val s = MaterialSwitch(this)
+            s.setText(label)
+            s.isChecked = on
+            s.setOnCheckedChangeListener { _, b -> change(b) }
+            box.addView(s)
+        }
+        sw(R.string.sc_night, nightOn) { if (it != nightOn) toggleNight() }
+        sw(R.string.sc_mirror, mirrorOn) {
+            mirrorOn = it; applyFlip(); updateShortcutStates()
+        }
+        sw(R.string.sc_vflip, flipOn) {
+            flipOn = it; applyFlip(); updateShortcutStates()
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.display_title)
+            .setView(box)
+            .setPositiveButton(R.string.btn_ok, null)
+            .show()
+    }
+
+    private fun showMore() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.more_title)
+            .setItems(arrayOf(getString(R.string.more_reset))) { _, _ ->
+                AppSettings.resetPlayer(this)
+                nightOn = false
+                nightOverlay.visibility = View.GONE
+                aspectIndex = 0
+                applyAspect(false)
+                applyVideoDisplay()
+                buildShortcuts()
+                buildMorePanel()
+                Toast.makeText(this, R.string.more_reset_done, Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    // ---------- কাট (A - B অংশ নতুন ভিডিও হিসেবে সেভ) ----------
+    private fun showCut() {
+        val p = player ?: return
+        if (abA < 0 || abB <= abA) {
+            Toast.makeText(this, R.string.cut_need_ab, Toast.LENGTH_LONG).show()
+            return
+        }
+        val src = p.currentMediaItem?.localConfiguration?.uri
+        if (src == null || cutting) {
+            notAvailable()
+            return
+        }
+        val from = abA
+        val to = abB
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.cut_title)
+            .setMessage(getString(R.string.cut_msg, from.toTimeString(), to.toTimeString()))
+            .setPositiveButton(R.string.cut_start) { _, _ -> startCut(src, from, to) }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    private fun startCut(src: Uri, from: Long, to: Long) {
+        val clip = MediaItem.Builder()
+            .setUri(src)
+            .setClippingConfiguration(
+                MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(from)
+                    .setEndPositionMs(to)
+                    .build()
+            )
+            .build()
+        val out = File(cacheDir, "cut_${System.currentTimeMillis()}.mp4")
+        val app = applicationContext
+        cutting = true
+        Toast.makeText(this, R.string.cut_progress, Toast.LENGTH_SHORT).show()
+        try {
+            Transformer.Builder(this)
+                .addListener(object : Transformer.Listener {
+                    override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+                        cutting = false
+                        Thread {
+                            val ok = saveVideoFile(app, out)
+                            out.delete()
+                            handler.post {
+                                Toast.makeText(
+                                    app, if (ok) R.string.cut_done else R.string.cut_fail,
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }.start()
+                    }
+
+                    override fun onError(
+                        composition: Composition, exportResult: ExportResult,
+                        exportException: ExportException
+                    ) {
+                        cutting = false
+                        out.delete()
+                        Toast.makeText(app, R.string.cut_fail, Toast.LENGTH_LONG).show()
+                    }
+                })
+                .build()
+                .start(EditedMediaItem.Builder(clip).build(), out.absolutePath)
+        } catch (e: Exception) {
+            cutting = false
+            Toast.makeText(this, R.string.cut_fail, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun saveVideoFile(ctx: Context, f: File): Boolean {
+        val values = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, "HM_cut_${System.currentTimeMillis()}.mp4")
+            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/HM Video Player")
+            }
+        }
+        return try {
+            val uri = ctx.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                ?: return false
+            ctx.contentResolver.openOutputStream(uri)?.use { o -> f.inputStream().use { it.copyTo(o) } }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // ছোট বার্তা (ভিডিওর মাঝখানে)
+    private fun flash(text: String, icon: Int? = null) {
+        show(text, icon)
+        handler.removeCallbacks(hideFeedback)
+        handler.postDelayed(hideFeedback, 800)
     }
 
     private fun updateProgress() {
@@ -437,6 +1131,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showControls() {
+        if (locked || inPip) return
         controlsVisible = true
         updateProgress()
         topBar.animate().cancel()
@@ -465,24 +1160,33 @@ class PlayerActivity : AppCompatActivity() {
             }.start()
     }
 
-    private fun applyAspect(announce: Boolean) {
-        playerView.resizeMode = aspectModes[aspectIndex]
-        aspectLabel.text = aspectNames[aspectIndex]
-        if (announce) {
-            show(aspectNames[aspectIndex], R.drawable.ic_aspect)
-            handler.removeCallbacks(hideFeedback)
-            handler.postDelayed(hideFeedback, 700)
+    // Fill screen: ভিডিওর অনুপাত ডিসপ্লের কাছাকাছি হলে জুম করে ক্যামেরা/নচসহ পুরো ডিসপ্লে ভরে দেয়;
+    // অনুপাত অনেক আলাদা (যেমন পোর্ট্রেট ভিডিও) হলে ছেঁটে যাওয়া এড়াতে Fit হয়
+    private fun smartFillMode(): Int {
+        val vs = player?.videoSize
+        val dw = playerView.width
+        val dh = playerView.height
+        if (vs == null || vs.width <= 0 || vs.height <= 0 || dw <= 0 || dh <= 0) {
+            return AspectRatioFrameLayout.RESIZE_MODE_ZOOM
         }
+        val videoRatio = vs.width * vs.pixelWidthHeightRatio / vs.height
+        val ratio = videoRatio / (dw.toFloat() / dh)
+        return if (ratio in 0.6f..1.6f) AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        else AspectRatioFrameLayout.RESIZE_MODE_FIT
+    }
+
+    private fun applyAspect(announce: Boolean) {
+        playerView.resizeMode = when (aspectIndex) {
+            0 -> smartFillMode()
+            1 -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+            else -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+        }
+        if (announce) flash(aspectNames[aspectIndex], R.drawable.ic_aspect)
     }
 
     private fun applyRotation(announce: Boolean) {
         requestedOrientation = rotationModes[rotationIndex]
-        rotateLabel.text = rotationNames[rotationIndex]
-        if (announce) {
-            show(rotationNames[rotationIndex], R.drawable.ic_rotate)
-            handler.removeCallbacks(hideFeedback)
-            handler.postDelayed(hideFeedback, 700)
-        }
+        if (announce) flash(rotationNames[rotationIndex], R.drawable.ic_rotate)
     }
 
     // ক্যামেরা/নচের অংশেও ভিডিও দেখায়; কন্ট্রোল থাকে নিরাপদ অংশের ভেতরে
@@ -534,6 +1238,10 @@ class PlayerActivity : AppCompatActivity() {
             override fun onDown(e: MotionEvent) = true
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                if (morePanel.visibility == View.VISIBLE) {
+                    hidePanel()
+                    return true
+                }
                 if (isAudio) return true
                 if (controlsVisible) hideControls() else showControls()
                 return true
@@ -594,6 +1302,10 @@ class PlayerActivity : AppCompatActivity() {
         })
 
         playerView.setOnTouchListener { _, ev ->
+            if (locked) {
+                if (ev.action == MotionEvent.ACTION_UP) revealUnlock()
+                return@setOnTouchListener true
+            }
             detector.onTouchEvent(ev)
             if (ev.action == MotionEvent.ACTION_UP || ev.action == MotionEvent.ACTION_CANCEL) {
                 endScroll()

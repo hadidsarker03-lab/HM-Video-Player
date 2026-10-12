@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -21,6 +22,14 @@ class PlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
+        current = player
+        // ইকুয়ালাইজার/অডিও ইফেক্ট অডিও সেশনের সাথে যুক্ত হয়
+        player.addListener(object : Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                AudioFx.attach(applicationContext, audioSessionId)
+            }
+        })
+        AudioFx.attach(applicationContext, player.audioSessionId)
 
         // নোটিফিকেশনে চাপলে চলমান প্লেয়ার আবার খোলে
         val intent = Intent(this, PlayerActivity::class.java).apply {
@@ -49,11 +58,20 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        SleepTimer.cancel()
+        AudioFx.release()
+        current = null
         mediaSession?.run {
             player.release()
             release()
         }
         mediaSession = null
         super.onDestroy()
+    }
+
+    companion object {
+        // একই প্রসেস থেকে (স্লিপ টাইমার) চলমান প্লেয়ারে পৌঁছানোর জন্য
+        @Volatile
+        var current: Player? = null
     }
 }

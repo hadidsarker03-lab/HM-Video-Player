@@ -106,7 +106,7 @@ object MediaActions {
             .show()
     }
 
-    private fun share(act: AppCompatActivity, v: Video) {
+    fun share(act: AppCompatActivity, v: Video) {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = if (v.isAudio) "audio/*" else "video/*"
             putExtra(Intent.EXTRA_STREAM, v.uri)
@@ -115,7 +115,7 @@ object MediaActions {
         act.startActivity(Intent.createChooser(send, act.getString(R.string.share_via)))
     }
 
-    private fun details(act: AppCompatActivity, v: Video) {
+    fun details(act: AppCompatActivity, v: Video) {
         val sb = StringBuilder()
         sb.append(act.getString(R.string.d_name)).append(": ").append(v.title).append('\n')
         sb.append(act.getString(R.string.d_size)).append(": ").append(v.size.toSizeString()).append('\n')

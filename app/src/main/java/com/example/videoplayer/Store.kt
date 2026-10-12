@@ -133,4 +133,33 @@ object Store {
     }
 
     fun getPos(c: Context, key: String): Long = sp(c).getLong("pos_$key", 0L)
+
+    // ---------- বুকমার্ক (প্রতি ভিডিওর জন্য সময়ের তালিকা) ----------
+    private fun bmKey(mediaId: String) = "bm_" + mediaId.hashCode()
+
+    fun bookmarks(c: Context, mediaId: String): List<Long> {
+        val s = sp(c).getString(bmKey(mediaId), null) ?: return emptyList()
+        return try {
+            val a = JSONArray(s)
+            (0 until a.length()).map { a.getLong(it) }.sorted()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun addBookmark(c: Context, mediaId: String, pos: Long) {
+        val list = bookmarks(c, mediaId).toMutableList()
+        if (!list.contains(pos)) list.add(pos)
+        sp(c).edit().putString(bmKey(mediaId), JSONArray(list.sorted()).toString()).apply()
+    }
+
+    fun removeBookmark(c: Context, mediaId: String, pos: Long) {
+        val list = bookmarks(c, mediaId).toMutableList()
+        list.remove(pos)
+        sp(c).edit().putString(bmKey(mediaId), JSONArray(list).toString()).apply()
+    }
+
+    fun clearBookmarks(c: Context, mediaId: String) {
+        sp(c).edit().remove(bmKey(mediaId)).apply()
+    }
 }

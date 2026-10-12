@@ -97,4 +97,65 @@ object AppSettings {
     fun setViewMode(c: Context, mode: Int) {
         prefs(c).edit().putInt("view_mode", mode).apply()
     }
+
+    // ---------- প্লেয়ার পেজের নতুন সেটিংস ----------
+    // শর্টকাট সারি দেখানো হবে কি না (ডিফল্ট: হ্যাঁ)
+    fun shortcutsOn(c: Context): Boolean = prefs(c).getBoolean("sc_on", true)
+
+    fun setShortcutsOn(c: Context, on: Boolean) {
+        prefs(c).edit().putBoolean("sc_on", on).apply()
+    }
+
+    // লুকানো শর্টকাটের কী-গুলো (কমা দিয়ে আলাদা)
+    fun hiddenShortcuts(c: Context): Set<String> =
+        (prefs(c).getString("sc_hidden", "") ?: "").split(",").filter { it.isNotEmpty() }.toSet()
+
+    fun setHiddenShortcuts(c: Context, keys: Set<String>) {
+        prefs(c).edit().putString("sc_hidden", keys.joinToString(",")).apply()
+    }
+
+    // ভিডিও দেখানো (বন্ধ করলে শুধু শব্দ চলে)
+    fun videoDisplay(c: Context): Boolean = prefs(c).getBoolean("video_display", true)
+
+    fun setVideoDisplay(c: Context, on: Boolean) {
+        prefs(c).edit().putBoolean("video_display", on).apply()
+    }
+
+    // ইকুয়ালাইজার ও অডিও ইফেক্ট
+    fun eqOn(c: Context): Boolean = prefs(c).getBoolean("eq_on", false)
+
+    fun setEqOn(c: Context, on: Boolean) {
+        prefs(c).edit().putBoolean("eq_on", on).apply()
+    }
+
+    fun eqLevels(c: Context): List<Int> =
+        (prefs(c).getString("eq_levels", "") ?: "").split(",").mapNotNull { it.toIntOrNull() }
+
+    fun setEqLevels(c: Context, levels: List<Int>) {
+        prefs(c).edit().putString("eq_levels", levels.joinToString(",")).apply()
+    }
+
+    // বাস বুস্ট / ভার্চুয়ালাইজার: 0..1000, লাউডনেস: 0..1500 (মিলিবেল)
+    fun fx(c: Context, key: String): Int = prefs(c).getInt("fx_$key", 0)
+
+    fun setFx(c: Context, key: String, v: Int) {
+        prefs(c).edit().putInt("fx_$key", v).apply()
+    }
+
+    // নাইট মোড (ডিম) মনে রাখা
+    fun nightMode(c: Context): Boolean = prefs(c).getBoolean("night_dim", false)
+
+    fun setNightMode(c: Context, on: Boolean) {
+        prefs(c).edit().putBoolean("night_dim", on).apply()
+    }
+
+    // প্লেয়ারের সেটিংস রিসেট
+    fun resetPlayer(c: Context) {
+        prefs(c).edit()
+            .remove("sc_on").remove("sc_hidden").remove("video_display").remove("night_dim")
+            .remove("aspect2").remove("eq_on").remove("eq_levels")
+            .remove("fx_bass").remove("fx_virt").remove("fx_loud")
+            .apply()
+        AudioFx.applyAll(c)
+    }
 }
