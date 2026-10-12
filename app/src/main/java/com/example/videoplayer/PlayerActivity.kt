@@ -5,12 +5,14 @@ import android.content.ComponentName
 import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
 import android.widget.SeekBar
@@ -18,6 +20,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -209,6 +212,7 @@ class PlayerActivity : AppCompatActivity() {
         setupControls()
         setupGestures()
         enterImmersive()
+        applyCutoutInsets()
     }
 
     override fun onStart() {
@@ -481,7 +485,36 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    // ক্যামেরা/নচের অংশেও ভিডিও দেখায়; কন্ট্রোল থাকে নিরাপদ অংশের ভেতরে
+    private fun applyCutoutInsets() {
+        val root = findViewById<View>(R.id.playerRoot)
+        val topBase = intArrayOf(topBar.paddingLeft, topBar.paddingRight)
+        val panelBase = intArrayOf(bottomPanel.paddingLeft, bottomPanel.paddingRight)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val i = insets.getInsets(
+                WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars()
+            )
+            topBar.setPadding(
+                topBase[0] + i.left, topBar.paddingTop, topBase[1] + i.right, topBar.paddingBottom
+            )
+            bottomPanel.setPadding(
+                panelBase[0] + i.left, bottomPanel.paddingTop,
+                panelBase[1] + i.right, bottomPanel.paddingBottom
+            )
+            insets
+        }
+    }
+
     private fun enterImmersive() {
+        // নচ/ক্যামেরার জায়গাতেও কনটেন্ট আঁকা হবে (Android 9+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val lp = window.attributes
+            lp.layoutInDisplayCutoutMode =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                else WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            window.attributes = lp
+        }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
