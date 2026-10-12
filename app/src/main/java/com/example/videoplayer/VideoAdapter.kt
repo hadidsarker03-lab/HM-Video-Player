@@ -5,21 +5,28 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import android.content.Context
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 
+// তালিকার সারি: মাসের হেডার অথবা ভিডিও/গান
+sealed class Row {
+    data class Header(val text: String) : Row()
+    data class Item(val video: Video) : Row()
+}
+
 class VideoAdapter(
-    private val onClick: (Video) -> Unit
-) : RecyclerView.Adapter<VideoAdapter.VH>() {
+    ctx: Context,
+    private val onClick: (Video) -> Unit,
+    private val onMore: (Video, View) -> Unit
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-    private var items: List<Video> = emptyList()
-    private var isAudio = false
-    private var mode = AppSettings.VIEW_LIST
+    private var rows: List<Row> = emptyList()
+    private var mode = AppSettings.viewMode(ctx)
 
-    fun submit(list: List<Video>, audio: Boolean) {
-        items = list
-        isAudio = audio
+    fun submit(list: List<Row>) {
+        rows = list
         notifyDataSetChanged()
     }
 
@@ -30,54 +37,81 @@ class VideoAdapter(
         }
     }
 
-    class VH(view: View) : RecyclerView.ViewHolder(view) {
+    fun isHeader(position: Int): Boolean = position in rows.indices && rows[position] is Row.Header
+
+    class HeaderVH(view: View) : RecyclerView.ViewHolder(view) {
+        val text: TextView = view.findViewById(R.id.headerText)
+    }
+
+    class ItemVH(view: View) : RecyclerView.ViewHolder(view) {
         val thumb: ImageView = view.findViewById(R.id.thumb)
-        val duration: TextView = view.findViewById(R.id.duration)
+        val duration: TextView? = view.findViewById(R.id.duration)
         val title: TextView = view.findViewById(R.id.title)
-        val size: TextView = view.findViewById(R.id.size)
+        val meta: TextView = view.findViewById(R.id.meta)
+        val chip: View? = view.findViewById(R.id.chipFolder)
+        val folderName: TextView? = view.findViewById(R.id.folderName)
+        val more: View = view.findViewById(R.id.more)
     }
 
-    override fun getItemViewType(position: Int): Int = mode
+    override fun getItemViewType(position: Int): Int =
+        if (rows[position] is Row.Header) 0 else mode + 1
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-        val layout = when (viewType) {
-            AppSettings.VIEW_GRID -> R.layout.item_video_grid
-            AppSettings.VIEW_COMPACT -> R.layout.item_video_compact
-            else -> R.layout.item_video
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        return when (viewType) {
+            0 -> HeaderVH(inflater.inflate(R.layout.item_header, parent, false))
+            1 -> ItemVH(inflater.inflate(R.layout.item_video, parent, false))
+            2 -> ItemVH(inflater.inflate(R.layout.item_video_grid, parent, false))
+            else -> ItemVH(inflater.inflate(R.layout.item_video_compact, parent, false))
         }
-        return VH(LayoutInflater.from(parent.context).inflate(layout, parent, false))
     }
 
-    override fun onBindViewHolder(holder: VH, position: Int) {
-        val v = items[position]
-        val ctx = holder.itemView.context
-        holder.title.text = v.title
-        holder.duration.text = v.duration.toTimeString()
-        holder.size.text = v.size.toSizeString()
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        val row = rows[position]
+        if (holder is HeaderVH && row is Row.Header) {
+            holder.text.text = row.text
+        } else if (holder is ItemVH && row is Row.Item) {
+            bind(holder, row.video)
+        }
+    }
+
+    private fun bind(h: ItemVH, v: Video) {
+        val ctx = h.itemView.context
+        h.title.text = v.title
+        h.meta.text = if (mode == AppSettings.VIEW_COMPACT) {
+            v.duration.toTimeString() + " | " + v.meta()
+        } else v.meta()
+        h.duration?.text = v.duration.toTimeString()
+        if (v.folder.isNotEmpty()) {
+            h.chip?.visibility = View.VISIBLE
+            h.folderName?.text = v.folder
+        } else {
+            h.chip?.visibility = View.GONE
+        }
 
         val padDp = when (mode) {
             AppSettings.VIEW_GRID -> 30
-            AppSettings.VIEW_COMPACT -> 12
-            else -> 22
+            AppSettings.VIEW_COMPACT -> 14
+            else -> 24
         }
         val pad = (padDp * ctx.resources.displayMetrics.density).toInt()
-
-        if (isAudio) {
-            Glide.with(holder.thumb).clear(holder.thumb)
-            holder.thumb.scaleType = ImageView.ScaleType.FIT_CENTER
-            holder.thumb.setBackgroundResource(R.drawable.bg_audio_thumb)
-            holder.thumb.setPadding(pad, pad, pad, pad)
-            holder.thumb.setImageResource(R.drawable.ic_audio)
-            holder.thumb.setColorFilter(ContextCompat.getColor(ctx, R.color.accent))
+        if (v.isAudio) {
+            Glide.with(h.thumb).clear(h.thumb)
+            h.thumb.scaleType = ImageView.ScaleType.FIT_CENTER
+            h.thumb.setBackgroundResource(R.drawable.bg_audio_thumb)
+            h.thumb.setPadding(pad, pad, pad, pad)
+            h.thumb.setImageResource(R.drawable.ic_audio)
+            h.thumb.setColorFilter(ContextCompat.getColor(ctx, R.color.accent))
         } else {
-            holder.thumb.clearColorFilter()
-            holder.thumb.scaleType = ImageView.ScaleType.CENTER_CROP
-            holder.thumb.setBackgroundColor(0)
-            holder.thumb.setPadding(0, 0, 0, 0)
-            Glide.with(holder.thumb).load(v.uri).centerCrop().into(holder.thumb)
+            h.thumb.clearColorFilter()
+            h.thumb.scaleType = ImageView.ScaleType.CENTER_CROP
+            h.thumb.setBackgroundColor(0)
+            h.thumb.setPadding(0, 0, 0, 0)
+            Glide.with(h.thumb).load(v.uri).centerCrop().into(h.thumb)
         }
-        holder.itemView.setOnClickListener { onClick(v) }
+        h.itemView.setOnClickListener { onClick(v) }
+        h.more.setOnClickListener { onMore(v, it) }
     }
 
-    override fun getItemCount() = items.size
+    override fun getItemCount() = rows.size
 }

@@ -58,6 +58,74 @@ object AppSettings {
         prefs(c).edit().putBoolean("bg_play", on).apply()
     }
 
+    private fun bool(c: Context, key: String, def: Boolean) = prefs(c).getBoolean(key, def)
+    private fun setBool(c: Context, key: String, v: Boolean) {
+        prefs(c).edit().putBoolean(key, v).apply()
+    }
+
+    // দেখার হিস্টরি সংরক্ষণ (ডিফল্ট: চালু)
+    fun saveHistory(c: Context) = bool(c, "save_history", true)
+    fun setSaveHistory(c: Context, v: Boolean) = setBool(c, "save_history", v)
+
+    // রিজিউম প্লেব্যাক (ডিফল্ট: চালু)
+    fun resume(c: Context) = bool(c, "resume", true)
+    fun setResume(c: Context, v: Boolean) = setBool(c, "resume", v)
+
+    // টানা প্লেব্যাক: শেষ হলে পরের আইটেম চলবে (ডিফল্ট: চালু)
+    fun continuous(c: Context) = bool(c, "continuous", true)
+    fun setContinuous(c: Context, v: Boolean) = setBool(c, "continuous", v)
+
+    // সর্বনিম্ন অডিও সময় (সেকেন্ড)
+    fun minAudioSec(c: Context): Int = prefs(c).getInt("min_audio", 0)
+    fun setMinAudioSec(c: Context, v: Int) {
+        prefs(c).edit().putInt("min_audio", v).apply()
+    }
+
+    // সর্টিং: 0 তারিখ (নতুন), 1 তারিখ (পুরনো), 2 নাম A-Z, 3 নাম Z-A, 4 সাইজ, 5 সময়
+    fun sortMode(c: Context): Int = prefs(c).getInt("sort", 0).coerceIn(0, 5)
+    fun setSortMode(c: Context, v: Int) {
+        prefs(c).edit().putInt("sort", v).apply()
+    }
+
+    // ডিফল্ট স্ক্রিন ঘোরানো: 0 অটো, 1 ল্যান্ডস্কেপ, 2 পোর্ট্রেট (প্লেয়ারের বাটনের সাথে একই মান)
+    fun rotationIndex(c: Context): Int = prefs(c).getInt("rotation", 0).coerceIn(0, 2)
+    fun setRotationIndex(c: Context, v: Int) {
+        prefs(c).edit().putInt("rotation", v).apply()
+    }
+
+    // সাজানোর ধরন: 0 নতুন আগে, 1 পুরনো আগে, 2 নাম A-Z, 3 নাম Z-A, 4 বড় সাইজ, 5 ছোট সাইজ, 6 বেশি সময়, 7 কম সময়
+    fun sort(c: Context): Int = prefs(c).getInt("sort", 0).coerceIn(0, 7)
+
+    fun setSort(c: Context, v: Int) {
+        prefs(c).edit().putInt("sort", v).apply()
+    }
+
+    // ডিফল্ট স্ক্রিন ওরিয়েন্টেশন (প্লেয়ারের সাথে একই কী): 0 অটো, 1 ল্যান্ডস্কেপ, 2 পোর্ট্রেট
+    fun rotation(c: Context): Int = prefs(c).getInt("rotation", 0).coerceIn(0, 2)
+
+    fun setRotation(c: Context, v: Int) {
+        prefs(c).edit().putInt("rotation", v).apply()
+    }
+
+    // ক্রমাগত চালানো, আগের জায়গা থেকে শুরু, ছোট অডিও লুকানো
+    fun continuous(c: Context): Boolean = prefs(c).getBoolean("continuous", true)
+
+    fun setContinuous(c: Context, on: Boolean) {
+        prefs(c).edit().putBoolean("continuous", on).apply()
+    }
+
+    fun resume(c: Context): Boolean = prefs(c).getBoolean("resume", true)
+
+    fun setResume(c: Context, on: Boolean) {
+        prefs(c).edit().putBoolean("resume", on).apply()
+    }
+
+    fun hideShort(c: Context): Boolean = prefs(c).getBoolean("hide_short", false)
+
+    fun setHideShort(c: Context, on: Boolean) {
+        prefs(c).edit().putBoolean("hide_short", on).apply()
+    }
+
     // ভিউ মোড: list / grid / compact
     fun viewMode(c: Context): Int = prefs(c).getInt("view_mode", VIEW_LIST).coerceIn(0, 2)
 

@@ -8,8 +8,31 @@ data class Video(
     val uri: Uri,
     val title: String,
     val duration: Long,
-    val size: Long
-)
+    val size: Long,
+    val dateAdded: Long = 0L,
+    val width: Int = 0,
+    val height: Int = 0,
+    val folder: String = "",
+    val isAudio: Boolean = false
+) {
+    // রেজোলিউশন লেবেল, যেমন 1080p
+    fun resolution(): String {
+        val m = minOf(width, height)
+        return when {
+            m <= 0 -> ""
+            m >= 2160 -> "4K"
+            else -> "${m}p"
+        }
+    }
+
+    // "1080p | 126.5 MB" বা গানের ক্ষেত্রে "03:45 | 5.2 MB"
+    fun meta(): String {
+        val parts = mutableListOf<String>()
+        if (isAudio) parts.add(duration.toTimeString()) else resolution().takeIf { it.isNotEmpty() }?.let { parts.add(it) }
+        parts.add(size.toSizeString())
+        return parts.joinToString(" | ")
+    }
+}
 
 fun Long.toTimeString(): String {
     val total = this / 1000

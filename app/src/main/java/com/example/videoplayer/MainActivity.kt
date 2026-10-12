@@ -1,34 +1,44 @@
 package com.example.videoplayer
 
 import android.Manifest
-import android.content.Intent
+import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Color
-import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
+import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var titleView: TextView
+    private lateinit var searchBar: View
+    private lateinit var searchInput: android.widget.EditText
+    private lateinit var btnSearch: ImageView
+    private lateinit var subRow: View
+    private lateinit var tabRow: LinearLayout
+    private lateinit var btnSort: ImageView
+    private lateinit var btnView: ImageView
     private lateinit var content: View
     private lateinit var recycler: RecyclerView
     private lateinit var progress: ProgressBar
@@ -37,16 +47,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var emptyText: TextView
     private lateinit var btnPermission: Button
     private lateinit var btnSample: Button
-    private lateinit var headerSub: TextView
-    private lateinit var btnView: ImageView
-    private lateinit var settingsPage: View
+    private lateinit var pageMe: View
     private lateinit var nav: BottomNavigationView
-    private lateinit var adapter: VideoAdapter
+    private lateinit var mediaAdapter: VideoAdapter
+    private lateinit var rowAdapter: RowAdapter
 
-    private var videos: List<Video> = emptyList()
-    private var audios: List<Video> = emptyList()
-    private var currentTab = TAB_VIDEO
+    private var tab = TAB_VIDEO
+    private var sub = SUB_ALL
+    private var query = ""
     private var loading = false
+    private var glassAtCreate = true
+    private var lmKey = ""
+    private var shown: List<Video> = emptyList()
     private val executor = Executors.newSingleThreadExecutor()
 
     private val permissions: Array<String> =
@@ -69,9 +81,12 @@ class MainActivity : AppCompatActivity() {
     private val notifLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    private class MeCell(val icon: Int, val label: Int, val action: () -> Unit)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(AppSettings.themeRes(this))
         super.onCreate(savedInstanceState)
+        glassAtCreate = AppSettings.glass(this)
 
         // প্রথমবার চালুর সময় ডিফল্ট ভাষা (ইংলিশ) সেট করা হয়
         val p = AppSettings.prefs(this)
@@ -81,22 +96,16 @@ class MainActivity : AppCompatActivity() {
         }
 
         setContentView(R.layout.activity_main)
+        UiKit.applyInsets(this, findViewById(R.id.root), findViewById(R.id.headerRow), false)
 
-        // সিস্টেম বার স্বচ্ছ; কনটেন্ট বারের নিচে পর্যন্ত যায়, হেডার স্ট্যাটাস বারের নিচে নামে
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        val root = findViewById<View>(R.id.root)
-        val headerRow = findViewById<View>(R.id.headerRow)
-        val baseTop = headerRow.paddingTop
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(bars.left, 0, bars.right, 0)
-            headerRow.setPadding(
-                headerRow.paddingLeft, baseTop + bars.top,
-                headerRow.paddingRight, headerRow.paddingBottom
-            )
-            insets
-        }
-
+        titleView = findViewById(R.id.title)
+        searchBar = findViewById(R.id.searchBar)
+        searchInput = findViewById(R.id.searchInput)
+        btnSearch = findViewById(R.id.btnSearch)
+        subRow = findViewById(R.id.subRow)
+        tabRow = findViewById(R.id.tabRow)
+        btnSort = findViewById(R.id.btnSort)
+        btnView = findViewById(R.id.btnView)
         content = findViewById(R.id.content)
         recycler = findViewById(R.id.recycler)
         progress = findViewById(R.id.progress)
@@ -105,56 +114,91 @@ class MainActivity : AppCompatActivity() {
         emptyText = findViewById(R.id.emptyText)
         btnPermission = findViewById(R.id.btnPermission)
         btnSample = findViewById(R.id.btnSample)
-        headerSub = findViewById(R.id.headerSub)
-        btnView = findViewById(R.id.btnView)
-        settingsPage = findViewById(R.id.settingsPage)
+        pageMe = findViewById(R.id.pageMe)
         nav = findViewById(R.id.nav)
 
-        adapter = VideoAdapter { video -> openPlaylist(video) }
-        recycler.adapter = adapter
-        applyViewMode()
-
-        // হেডারের বাটনে চাপলে ভিউ বদলায়: লিস্ট → গ্রিড → কমপ্যাক্ট
-        btnView.setOnClickListener {
-            setViewMode((AppSettings.viewMode(this) + 1) % 3)
-        }
+        mediaAdapter = VideoAdapter(
+            this,
+            onClick = { v -> MediaActions.play(this, shown, v) },
+            onMore = { v, anchor ->
+                MediaActions.showMenu(this, anchor, v, shown, null) { refresh() }
+            }
+        )
+        rowAdapter = RowAdapter(onClick = { onRowClick(it) }, onLong = { onRowLong(it) })
 
         btnPermission.setOnClickListener { permissionLauncher.launch(requestPermissions) }
-        btnSample.setOnClickListener { openSingle(SAMPLE_URL, getString(R.string.sample_title)) }
+        btnSample.setOnClickListener {
+            startActivity(
+                android.content.Intent(this, PlayerActivity::class.java)
+                    .putExtra(PlayerActivity.EXTRA_URI, SAMPLE_URL)
+                    .putExtra(PlayerActivity.EXTRA_TITLE, getString(R.string.sample_title))
+            )
+        }
 
-        buildSettings()
+        btnSearch.setOnClickListener {
+            if (searchBar.visibility == View.VISIBLE) closeSearch() else openSearch()
+        }
+        searchInput.doAfterTextChanged {
+            query = it?.toString() ?: ""
+            refresh()
+        }
+        btnSort.setOnClickListener { showSortMenu() }
+        btnView.setOnClickListener {
+            AppSettings.setViewMode(this, (AppSettings.viewMode(this) + 1) % 3)
+            applyViewMode()
+            refresh()
+        }
 
-        currentTab = savedInstanceState?.getInt(KEY_TAB, TAB_VIDEO) ?: TAB_VIDEO
+        tab = savedInstanceState?.getInt(KEY_TAB, TAB_VIDEO) ?: TAB_VIDEO
+        sub = savedInstanceState?.getInt(KEY_SUB, SUB_ALL) ?: SUB_ALL
+        nav.selectedItemId = navIdFor(tab)
         nav.setOnItemSelectedListener { item ->
-            currentTab = when (item.itemId) {
-                R.id.nav_audio -> TAB_AUDIO
-                R.id.nav_settings -> TAB_SETTINGS
+            val newTab = when (item.itemId) {
+                R.id.nav_audio -> TAB_MUSIC
+                R.id.nav_me -> TAB_ME
                 else -> TAB_VIDEO
             }
-            refreshTab(true)
+            if (newTab != tab) {
+                if (searchBar.visibility == View.VISIBLE) closeSearch()
+                tab = newTab
+            }
+            buildTabs()
+            refresh(true)
             true
         }
-        nav.selectedItemId = when (currentTab) {
-            TAB_AUDIO -> R.id.nav_audio
-            TAB_SETTINGS -> R.id.nav_settings
-            else -> R.id.nav_video
-        }
-        refreshTab(false)
+
+        buildMe()
+        applyViewMode()
+        buildTabs()
+        refresh()
     }
 
     override fun onResume() {
         super.onResume()
+        if (glassAtCreate != AppSettings.glass(this)) {
+            recreate()
+            return
+        }
+        applyViewMode()
         loadMedia()
+        refresh()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putInt(KEY_TAB, currentTab)
+        outState.putInt(KEY_TAB, tab)
+        outState.putInt(KEY_SUB, sub)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         executor.shutdown()
+    }
+
+    private fun navIdFor(t: Int) = when (t) {
+        TAB_MUSIC -> R.id.nav_audio
+        TAB_ME -> R.id.nav_me
+        else -> R.id.nav_video
     }
 
     // ---------- মিডিয়া লোড ----------
@@ -164,7 +208,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadMedia() {
         if (!hasPermission()) {
-            refreshTab(false)
+            refresh()
             return
         }
         askNotificationOnce()
@@ -172,14 +216,11 @@ class MainActivity : AppCompatActivity() {
         loading = true
         progress.visibility = View.VISIBLE
         executor.execute {
-            val v = MediaRepo.queryVideos(this)
-            val a = MediaRepo.queryAudio(this)
+            Library.reload(applicationContext)
             runOnUiThread {
                 loading = false
-                videos = v
-                audios = a
                 progress.visibility = View.GONE
-                refreshTab(false)
+                refresh()
             }
         }
     }
@@ -196,88 +237,102 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ---------- ট্যাব ----------
-    private fun refreshTab(animate: Boolean) {
-        if (currentTab == TAB_SETTINGS) {
-            recycler.visibility = View.GONE
-            emptyBox.visibility = View.GONE
-            settingsPage.visibility = View.VISIBLE
-            headerSub.text = getString(R.string.header_settings)
-            btnView.visibility = View.GONE
-        } else {
-            settingsPage.visibility = View.GONE
-            btnView.visibility = View.VISIBLE
-            val audio = currentTab == TAB_AUDIO
-            val list = if (audio) audios else videos
-            adapter.submit(list, audio)
-            headerSub.text = when {
-                list.isEmpty() -> ""
-                audio -> getString(R.string.header_audio, list.size)
-                else -> getString(R.string.header_videos, list.size)
-            }
-            recycler.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
-            val showEmpty = list.isEmpty() && !loading
-            emptyBox.visibility = if (showEmpty) View.VISIBLE else View.GONE
-            if (showEmpty) {
-                val perm = hasPermission()
-                emptyIcon.setImageResource(if (audio) R.drawable.ic_audio else R.drawable.ic_video)
-                emptyText.setText(
-                    when {
-                        !perm -> R.string.perm_needed
-                        audio -> R.string.empty_audio
-                        else -> R.string.empty_video
-                    }
-                )
-                btnPermission.visibility = if (perm) View.GONE else View.VISIBLE
-                btnSample.visibility = if (audio) View.GONE else View.VISIBLE
-            }
-        }
-        if (animate) {
-            content.alpha = 0f
-            content.animate().alpha(1f).setDuration(200).start()
-        }
+    // ---------- সার্চ ----------
+    private fun openSearch() {
+        titleView.visibility = View.GONE
+        searchBar.visibility = View.VISIBLE
+        btnSearch.setImageResource(R.drawable.ic_close)
+        searchInput.requestFocus()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.showSoftInput(searchInput, 0)
     }
 
-    // ---------- প্লেয়ার চালু ----------
-    private fun openPlaylist(video: Video) {
-        val audio = currentTab == TAB_AUDIO
-        val full = if (audio) audios else videos
-        val index = full.indexOfFirst { it.id == video.id }.coerceAtLeast(0)
-        // বড় লিস্ট হলে Intent-এ শুধু আশেপাশের অংশ পাঠানো হয়
-        val from = (index - 500).coerceAtLeast(0)
-        val to = (index + 500).coerceAtMost(full.size)
-        val list = full.subList(from, to)
-        startActivity(Intent(this, PlayerActivity::class.java).apply {
-            putStringArrayListExtra(
-                PlayerActivity.EXTRA_URIS, ArrayList(list.map { it.uri.toString() })
+    private fun closeSearch() {
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(searchInput.windowToken, 0)
+        searchInput.setText("")
+        query = ""
+        searchBar.visibility = View.GONE
+        titleView.visibility = View.VISIBLE
+        btnSearch.setImageResource(R.drawable.ic_search)
+        refresh()
+    }
+
+    // ---------- সাব-ট্যাব: Video / Folder / Playlist ----------
+    private fun buildTabs() {
+        val labels = listOf(
+            if (tab == TAB_MUSIC) R.string.sub_songs else R.string.sub_video,
+            R.string.sub_folder,
+            R.string.sub_playlist
+        )
+        tabRow.removeAllViews()
+        labels.forEachIndexed { i, res ->
+            val selected = i == sub
+            val cell = LinearLayout(this)
+            cell.orientation = LinearLayout.VERTICAL
+            cell.gravity = Gravity.CENTER_HORIZONTAL
+            cell.setPadding(0, UiKit.dp(this, 10), UiKit.dp(this, 22), UiKit.dp(this, 4))
+
+            val tv = TextView(this)
+            tv.setText(res)
+            tv.textSize = 16f
+            tv.typeface = android.graphics.Typeface.create(
+                "sans-serif-medium", android.graphics.Typeface.NORMAL
             )
-            putStringArrayListExtra(
-                PlayerActivity.EXTRA_TITLES, ArrayList(list.map { it.title })
+            tv.setTextColor(
+                ContextCompat.getColor(this, if (selected) R.color.accent else R.color.text_primary)
             )
-            putExtra(PlayerActivity.EXTRA_INDEX, index - from)
-            putExtra(PlayerActivity.EXTRA_AUDIO, audio)
-        })
+            cell.addView(tv)
+
+            val bar = View(this)
+            bar.setBackgroundResource(R.drawable.bg_indicator)
+            bar.layoutParams = LinearLayout.LayoutParams(UiKit.dp(this, 20), UiKit.dp(this, 3))
+                .apply { topMargin = UiKit.dp(this@MainActivity, 4) }
+            bar.visibility = if (selected) View.VISIBLE else View.INVISIBLE
+            cell.addView(bar)
+
+            cell.setOnClickListener {
+                sub = i
+                buildTabs()
+                refresh(true)
+            }
+            tabRow.addView(cell)
+        }
     }
 
-    private fun openSingle(uri: String, title: String) {
-        startActivity(Intent(this, PlayerActivity::class.java).apply {
-            putExtra(PlayerActivity.EXTRA_URI, uri)
-            putExtra(PlayerActivity.EXTRA_TITLE, title)
-        })
+    // ---------- সাজানো ও ভিউ ----------
+    private fun showSortMenu() {
+        val labels = intArrayOf(
+            R.string.sort_date_new, R.string.sort_date_old, R.string.sort_name_az,
+            R.string.sort_name_za, R.string.sort_size_big, R.string.sort_size_small,
+            R.string.sort_dur_long, R.string.sort_dur_short
+        )
+        val pm = PopupMenu(this, btnSort)
+        labels.forEachIndexed { i, res -> pm.menu.add(0, i, i, res) }
+        pm.menu.setGroupCheckable(0, true, true)
+        pm.menu.getItem(AppSettings.sort(this)).isChecked = true
+        pm.setOnMenuItemClickListener { item ->
+            AppSettings.setSort(this, item.itemId)
+            refresh()
+            true
+        }
+        pm.show()
     }
 
-    // ---------- ভিউ মোড ----------
-    private fun spanCount(): Int {
-        val widthDp = resources.displayMetrics.widthPixels / resources.displayMetrics.density
-        return (widthDp / 170f).toInt().coerceIn(2, 5)
+    private fun sortList(list: List<Video>): List<Video> = when (AppSettings.sort(this)) {
+        0 -> list.sortedByDescending { it.dateAdded }
+        1 -> list.sortedBy { it.dateAdded }
+        2 -> list.sortedBy { it.title.lowercase() }
+        3 -> list.sortedByDescending { it.title.lowercase() }
+        4 -> list.sortedByDescending { it.size }
+        5 -> list.sortedBy { it.size }
+        6 -> list.sortedByDescending { it.duration }
+        else -> list.sortedBy { it.duration }
     }
 
     private fun applyViewMode() {
         val mode = AppSettings.viewMode(this)
-        adapter.setMode(mode)
-        recycler.layoutManager =
-            if (mode == AppSettings.VIEW_GRID) GridLayoutManager(this, spanCount())
-            else LinearLayoutManager(this)
+        mediaAdapter.setMode(mode)
         btnView.setImageResource(
             when (mode) {
                 AppSettings.VIEW_GRID -> R.drawable.ic_view_grid
@@ -287,92 +342,256 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun setViewMode(mode: Int) {
-        AppSettings.setViewMode(this, mode)
-        applyViewMode()
-        buildSettings()
+    private fun spanCount(): Int {
+        val widthDp = resources.displayMetrics.widthPixels / resources.displayMetrics.density
+        return (widthDp / 170f).toInt().coerceIn(2, 5)
     }
 
-    // ---------- সেটিংস: ভাষা, থিম, ভিউ ----------
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
-
-    private fun buildSettings() {
-        val langCodes = listOf("en", "bn")
-        buildOptions(
-            findViewById(R.id.langOptions),
-            listOf("English", "বাংলা"),
-            langCodes.indexOf(AppSettings.lang(this)).coerceAtLeast(0)
-        ) { i -> AppSettings.setLang(this, langCodes[i]) }
-
-        val modes = listOf("system", "light", "dark")
-        buildOptions(
-            findViewById(R.id.themeOptions),
-            listOf(
-                getString(R.string.mode_system),
-                getString(R.string.mode_light),
-                getString(R.string.mode_dark)
-            ),
-            modes.indexOf(AppSettings.themeMode(this)).coerceAtLeast(0)
-        ) { i -> AppSettings.setThemeMode(this, modes[i]) }
-
-        buildOptions(
-            findViewById(R.id.viewOptions),
-            listOf(
-                getString(R.string.layout_list),
-                getString(R.string.layout_grid),
-                getString(R.string.layout_compact)
-            ),
-            AppSettings.viewMode(this)
-        ) { i -> setViewMode(i) }
-
-        val onOff = listOf(getString(R.string.opt_on), getString(R.string.opt_off))
-        buildOptions(
-            findViewById(R.id.glassOptions),
-            onOff,
-            if (AppSettings.glass(this)) 0 else 1
-        ) { i ->
-            AppSettings.setGlass(this, i == 0)
-            recreate()
+    private fun setMediaLayout() {
+        val grid = AppSettings.viewMode(this) == AppSettings.VIEW_GRID
+        val span = spanCount()
+        val key = if (grid) "grid$span" else "linear"
+        if (key != lmKey) {
+            lmKey = key
+            if (grid) {
+                val lm = GridLayoutManager(this, span)
+                lm.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                    override fun getSpanSize(position: Int): Int =
+                        if (mediaAdapter.isHeader(position)) span else 1
+                }
+                recycler.layoutManager = lm
+            } else {
+                recycler.layoutManager = LinearLayoutManager(this)
+            }
         }
-        buildOptions(
-            findViewById(R.id.bgOptions),
-            onOff,
-            if (AppSettings.backgroundPlay(this)) 0 else 1
-        ) { i ->
-            AppSettings.setBackgroundPlay(this, i == 0)
-            buildSettings()
-        }
-
-        findViewById<TextView>(R.id.versionText).text =
-            getString(R.string.about_text, versionName())
+        if (recycler.adapter !== mediaAdapter) recycler.adapter = mediaAdapter
     }
 
-    private fun buildOptions(
-        container: LinearLayout,
-        labels: List<String>,
-        selected: Int,
-        onSelect: (Int) -> Unit
-    ) {
-        container.removeAllViews()
-        labels.forEachIndexed { i, label ->
-            val sel = i == selected
-            val tv = TextView(this)
-            tv.text = label
-            tv.gravity = Gravity.CENTER
-            tv.textSize = 13f
-            tv.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            tv.setPadding(dp(6), dp(11), dp(6), dp(11))
-            if (sel) tv.setBackgroundResource(R.drawable.bg_option_selected) else tv.background = null
-            tv.setTextColor(
-                if (sel) ContextCompat.getColor(this, R.color.on_accent)
-                else ContextCompat.getColor(this, R.color.text_secondary)
+    private fun setRowLayout() {
+        if (lmKey != "rows") {
+            lmKey = "rows"
+            recycler.layoutManager = LinearLayoutManager(this)
+        }
+        if (recycler.adapter !== rowAdapter) recycler.adapter = rowAdapter
+    }
+
+    // ---------- তালিকা দেখানো ----------
+    private fun refresh(animate: Boolean = false) {
+        val isMe = tab == TAB_ME
+        pageMe.visibility = if (isMe) View.VISIBLE else View.GONE
+        subRow.visibility = if (isMe) View.GONE else View.VISIBLE
+        btnSearch.visibility = if (isMe) View.GONE else View.VISIBLE
+        if (isMe) {
+            recycler.visibility = View.GONE
+            emptyBox.visibility = View.GONE
+        } else {
+            val audio = tab == TAB_MUSIC
+            val isAll = sub == SUB_ALL
+            btnSort.visibility = if (isAll) View.VISIBLE else View.GONE
+            btnView.visibility = if (isAll) View.VISIBLE else View.GONE
+            when (sub) {
+                SUB_ALL -> showMedia(audio)
+                SUB_FOLDER -> showFolders(audio)
+                else -> showPlaylists(audio)
+            }
+        }
+        if (animate) {
+            content.alpha = 0f
+            content.animate().alpha(1f).setDuration(200).start()
+        }
+    }
+
+    private fun showEmpty(audio: Boolean, message: Int, withButtons: Boolean) {
+        recycler.visibility = View.GONE
+        emptyBox.visibility = View.VISIBLE
+        emptyIcon.setImageResource(if (audio) R.drawable.ic_audio else R.drawable.ic_video)
+        emptyText.setText(message)
+        val needPermission = !hasPermission()
+        btnPermission.visibility = if (withButtons && needPermission) View.VISIBLE else View.GONE
+        btnSample.visibility = if (withButtons && !audio) View.VISIBLE else View.GONE
+    }
+
+    private fun showMedia(audio: Boolean) {
+        var list = Library.list(audio)
+        if (audio && AppSettings.hideShort(this)) list = list.filter { it.duration >= 30_000 }
+        val q = query.trim()
+        if (q.isNotEmpty()) list = list.filter { it.title.contains(q, ignoreCase = true) }
+        list = sortList(list)
+        shown = list
+
+        setMediaLayout()
+        val rows: List<Row> =
+            if (AppSettings.sort(this) <= 1) withMonthHeaders(list) else list.map { Row.Item(it) }
+        mediaAdapter.submit(rows)
+
+        if (list.isEmpty()) {
+            if (loading) {
+                recycler.visibility = View.GONE
+                emptyBox.visibility = View.GONE
+            } else when {
+                !hasPermission() -> showEmpty(audio, R.string.perm_needed, true)
+                q.isNotEmpty() -> showEmpty(audio, R.string.no_results, false)
+                else -> showEmpty(audio, if (audio) R.string.empty_audio else R.string.empty_video, true)
+            }
+        } else {
+            emptyBox.visibility = View.GONE
+            recycler.visibility = View.VISIBLE
+        }
+    }
+
+    private fun withMonthHeaders(list: List<Video>): List<Row> {
+        val fmt = SimpleDateFormat("LLL yyyy", Locale.getDefault())
+        val rows = mutableListOf<Row>()
+        var last = ""
+        for (v in list) {
+            val label = if (v.dateAdded > 0) fmt.format(Date(v.dateAdded * 1000)) else ""
+            if (label.isNotEmpty() && label != last) {
+                rows.add(Row.Header(label))
+                last = label
+            }
+            rows.add(Row.Item(v))
+        }
+        return rows
+    }
+
+    private fun showFolders(audio: Boolean) {
+        val unknown = getString(R.string.folder_unknown)
+        val groups = Library.list(audio).groupBy { it.folder.ifEmpty { unknown } }
+        val rows = groups.entries.sortedBy { it.key.lowercase() }.map {
+            RowData(
+                "f:" + it.key, R.drawable.ic_folder, it.key,
+                getString(if (audio) R.string.header_audio else R.string.header_videos, it.value.size)
             )
-            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            if (i > 0) lp.marginStart = dp(4)
-            tv.layoutParams = lp
-            tv.setOnClickListener { if (!sel) onSelect(i) }
-            container.addView(tv)
         }
+        setRowLayout()
+        rowAdapter.submit(rows)
+        if (rows.isEmpty()) {
+            if (loading) {
+                recycler.visibility = View.GONE
+                emptyBox.visibility = View.GONE
+            } else {
+                showEmpty(audio, if (!hasPermission()) R.string.perm_needed else
+                    if (audio) R.string.empty_audio else R.string.empty_video, true)
+            }
+        } else {
+            emptyBox.visibility = View.GONE
+            recycler.visibility = View.VISIBLE
+        }
+    }
+
+    private fun showPlaylists(audio: Boolean) {
+        val rows = mutableListOf(
+            RowData("new", R.drawable.ic_playlist_add, getString(R.string.new_playlist), ""),
+            RowData(
+                "fav", R.drawable.ic_favorite, getString(R.string.favorites),
+                getString(R.string.count_items, Store.favoriteCount(this, audio))
+            )
+        )
+        for ((n, ids) in Store.playlists(this, audio)) {
+            rows.add(RowData("p:$n", R.drawable.ic_playlist, n, getString(R.string.count_items, ids.size)))
+        }
+        setRowLayout()
+        rowAdapter.submit(rows)
+        emptyBox.visibility = View.GONE
+        recycler.visibility = View.VISIBLE
+    }
+
+    private fun onRowClick(r: RowData) {
+        val audio = tab == TAB_MUSIC
+        when {
+            r.key == "new" -> MediaActions.promptNewPlaylist(this, audio) { refresh() }
+            r.key == "fav" ->
+                MediaListActivity.start(this, MediaListActivity.MODE_FAVORITES, audio)
+            r.key.startsWith("p:") ->
+                MediaListActivity.start(this, MediaListActivity.MODE_PLAYLIST, audio, r.key.substring(2))
+            r.key.startsWith("f:") ->
+                MediaListActivity.start(this, MediaListActivity.MODE_FOLDER, audio, r.key.substring(2))
+        }
+    }
+
+    private fun onRowLong(r: RowData) {
+        if (!r.key.startsWith("p:")) return
+        val audio = tab == TAB_MUSIC
+        MaterialAlertDialogBuilder(this)
+            .setMessage(R.string.delete_playlist_q)
+            .setPositiveButton(R.string.btn_delete) { _, _ ->
+                Store.deletePlaylist(this, audio, r.key.substring(2))
+                refresh()
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    // ---------- Me ট্যাব ----------
+    private fun buildMe() {
+        findViewById<TextView>(R.id.meVersion).text = getString(R.string.about_text, versionName())
+
+        val grid = findViewById<LinearLayout>(R.id.meGrid)
+        grid.removeAllViews()
+        val cells = listOf(
+            MeCell(R.drawable.ic_history, R.string.history) {
+                MediaListActivity.start(this, MediaListActivity.MODE_HISTORY, false, "", true)
+            },
+            MeCell(R.drawable.ic_favorite, R.string.favorites) {
+                MediaListActivity.start(this, MediaListActivity.MODE_FAVORITES, false, "", true)
+            },
+            MeCell(R.drawable.ic_playlist, R.string.sub_playlist) {
+                sub = SUB_PLAYLIST
+                tab = TAB_VIDEO
+                nav.selectedItemId = R.id.nav_video
+                buildTabs()
+                refresh(true)
+            },
+            MeCell(R.drawable.ic_palette, R.string.settings_theme) { UiKit.chooseTheme(this) },
+            MeCell(R.drawable.ic_language, R.string.settings_language) { UiKit.chooseLanguage(this) },
+            MeCell(R.drawable.ic_view_grid, R.string.settings_layout) {
+                UiKit.chooseLayout(this) {
+                    applyViewMode()
+                    refresh()
+                }
+            }
+        )
+        cells.chunked(3).forEach { chunk ->
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            chunk.forEach { row.addView(meCell(it)) }
+            grid.addView(row)
+        }
+
+        val list = findViewById<LinearLayout>(R.id.meList)
+        list.removeAllViews()
+        UiKit.row(this, list, R.drawable.ic_settings, getString(R.string.tab_settings), null) {
+            SettingsActivity.open(this)
+        }
+        UiKit.row(this, list, R.drawable.ic_info, getString(R.string.me_about), null) {
+            SettingsActivity.openAbout(this)
+        }
+    }
+
+    private fun meCell(c: MeCell): View {
+        val cell = LinearLayout(this)
+        cell.orientation = LinearLayout.VERTICAL
+        cell.gravity = Gravity.CENTER
+        cell.setPadding(0, UiKit.dp(this, 16), 0, UiKit.dp(this, 14))
+        cell.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        cell.setBackgroundResource(UiKit.ripple(this))
+
+        val icon = ImageView(this)
+        icon.setImageResource(c.icon)
+        icon.setColorFilter(ContextCompat.getColor(this, R.color.text_primary))
+        icon.layoutParams = LinearLayout.LayoutParams(UiKit.dp(this, 28), UiKit.dp(this, 28))
+        cell.addView(icon)
+
+        val label = TextView(this)
+        label.setText(c.label)
+        label.textSize = 13f
+        label.gravity = Gravity.CENTER
+        label.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
+        label.setPadding(0, UiKit.dp(this, 8), 0, 0)
+        cell.addView(label)
+
+        cell.setOnClickListener { c.action() }
+        return cell
     }
 
     private fun versionName(): String = try {
@@ -383,9 +602,13 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAB_VIDEO = 0
-        private const val TAB_AUDIO = 1
-        private const val TAB_SETTINGS = 2
+        private const val TAB_MUSIC = 1
+        private const val TAB_ME = 2
+        private const val SUB_ALL = 0
+        private const val SUB_FOLDER = 1
+        private const val SUB_PLAYLIST = 2
         private const val KEY_TAB = "key_tab"
+        private const val KEY_SUB = "key_sub"
         const val SAMPLE_URL =
             "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
     }

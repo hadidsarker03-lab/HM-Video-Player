@@ -58,6 +58,8 @@ class PlayerActivity : AppCompatActivity() {
     private var player: Player? = null
     private var isAudio = false
     private var needLoad = true
+    private var audioFlags = BooleanArray(0)
+    private var tickCount = 0
 
     // প্লেলিস্ট
     private var uris: List<String> = emptyList()
@@ -79,6 +81,8 @@ class PlayerActivity : AppCompatActivity() {
     private val ticker = object : Runnable {
         override fun run() {
             updateProgress()
+            tickCount++
+            if (tickCount % 10 == 0) savePosition()
             handler.postDelayed(this, 500)
         }
     }
@@ -135,6 +139,11 @@ class PlayerActivity : AppCompatActivity() {
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             onItemChanged(mediaItem)
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO &&
+                !AppSettings.continuous(this@PlayerActivity)
+            ) {
+                player?.pause()
+            }
             updateProgress()
         }
     }
@@ -163,6 +172,9 @@ class PlayerActivity : AppCompatActivity() {
                 return
             }
         }
+
+        audioFlags = intent.getBooleanArrayExtra(EXTRA_FLAGS) ?: BooleanArray(0)
+        if (audioFlags.isNotEmpty()) isAudio = audioFlags.getOrElse(savedIndex) { isAudio }
 
         // নতুন করে খুললে প্লেলিস্ট লোড হয়; নোটিফিকেশন বা রিস্টোর থেকে এলে চলমান প্লেয়ারেই যুক্ত হয়
         needLoad = savedInstanceState == null && !resume
@@ -266,7 +278,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun loadItems(c: MediaController) {
         val items = uris.mapIndexed { i, u ->
-            val extras = Bundle().apply { putBoolean(META_AUDIO, isAudio) }
+            val extras = Bundle().apply { putBoolean(META_AUDIO, audioFlags.getOrElse(i) { isAudio }) }
             MediaItem.Builder()
                 .setMediaId(u)
                 .setUri(Uri.parse(u))
@@ -279,7 +291,13 @@ class PlayerActivity : AppCompatActivity() {
                 .build()
         }
         val start = savedIndex.coerceIn(0, items.size - 1)
-        c.setMediaItems(items, start, savedPosition)
+        var pos = savedPosition
+        // আগের জায়গা থেকে চালানো (শুধু ভিডিও)
+        if (pos == 0L && AppSettings.resume(this) && !audioFlags.getOrElse(start) { isAudio }) {
+            val saved = Store.getPos(this, uris[start])
+            if (saved > 5_000) pos = saved
+        }
+        c.setMediaItems(items, start, pos)
         c.playWhenReady = savedPlayWhenReady
         c.prepare()
         needLoad = false
@@ -303,6 +321,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun releaseController() {
         val c = player
         if (c != null) {
+            savePosition()
             savedIndex = c.currentMediaItemIndex
             savedPosition = c.currentPosition
             savedPlayWhenReady = c.playWhenReady
@@ -318,6 +337,17 @@ class PlayerActivity : AppCompatActivity() {
         player = null
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controllerFuture = null
+    }
+
+    // ভিডিওর বর্তমান অবস্থান সংরক্ষণ (শেষের কাছাকাছি হলে শুরু থেকে)
+    private fun savePosition() {
+        val p = player ?: return
+        val item = p.currentMediaItem ?: return
+        if (item.mediaMetadata.extras?.getBoolean(META_AUDIO, false) == true) return
+        val dur = p.duration
+        val pos = p.currentPosition
+        val value = if (dur != C.TIME_UNSET && dur > 0 && pos > dur - 5_000) 0L else pos
+        Store.savePos(this, item.mediaId, value)
     }
 
     private fun togglePlay() {
@@ -578,6 +608,7 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_TITLES = "extra_titles"
         const val EXTRA_INDEX = "extra_index"
         const val EXTRA_AUDIO = "extra_audio"
+        const val EXTRA_FLAGS = "extra_flags"
         const val EXTRA_RESUME = "extra_resume"
         private const val META_AUDIO = "meta_audio"
         private const val KEY_INDEX = "key_index"
