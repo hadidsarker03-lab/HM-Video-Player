@@ -20,6 +20,7 @@
         <item name="hmSurface">@color/surface</item>
         <item name="hmSurfaceAlt">@color/surface_alt</item>
         <item name="hmDivider">@color/divider</item>
+        <item name="android:windowAnimationStyle">@style/HMWindowAnim</item>
     </style>
 
     <!-- ট্রান্সপারেন্ট (গ্লাস) থিম: ওয়ালপেপার দেখা যায়, সিস্টেম বার স্বচ্ছ -->
@@ -54,10 +55,12 @@
         <item name="android:windowBackground">@drawable/bg_splash</item>
     </style>
 
-    <!-- নিচের ট্যাববারের সিলেক্টেড পিল -->
-    <style name="HMNavIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
-        <item name="android:color">@color/nav_indicator</item>
-        <item name="android:width">72dp</item>
-        <item name="android:height">34dp</item>
+
+    <!-- স্ক্রিন খোলা/বন্ধের স্মুথ স্লাইড + ফেড -->
+    <style name="HMWindowAnim" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/hm_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/hm_exit_back</item>
+        <item name="android:activityCloseEnterAnimation">@anim/hm_enter_back</item>
+        <item name="android:activityCloseExitAnimation">@anim/hm_exit</item>
     </style>
 </resources>

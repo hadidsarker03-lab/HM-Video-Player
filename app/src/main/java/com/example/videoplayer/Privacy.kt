@@ -408,6 +408,9 @@ class PrivacyActivity : MediaActivity() {
         UiKit.applyInsets(this, findViewById(R.id.root), findViewById(R.id.headerRow), true)
 
         recycler = findViewById(R.id.recycler)
+        recycler.setHasFixedSize(true)
+        recycler.setItemViewCacheSize(14)
+        recycler.itemAnimator = null
         emptyText = findViewById(R.id.emptyText)
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
         findViewById<TextView>(R.id.title).setText(R.string.privacy)

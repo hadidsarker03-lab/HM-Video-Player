@@ -185,7 +185,7 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            btnPlay.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+            Anim.swapIcon(btnPlay, if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
         }
 
         override fun onRepeatModeChanged(repeatMode: Int) = updateShortcutStates()
@@ -363,7 +363,7 @@ class PlayerActivity : AppCompatActivity() {
         applyFlip()
         updateShortcutStates()
         if (abA >= 0 && abB > abA) handler.post(abRun)
-        btnPlay.setImageResource(
+        Anim.swapIcon(btnPlay, 
             if (c.isPlaying || c.playWhenReady) R.drawable.ic_pause else R.drawable.ic_play
         )
         updateProgress()
@@ -589,6 +589,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             shortcutRow.addView(arrow)
             shortcutRow.addView(extra)
+            Anim.attachTree(shortcutRow)
             arrowView = arrow
             extraRow = extra
             extra.visibility = if (shortcutsExpanded) View.VISIBLE else View.GONE

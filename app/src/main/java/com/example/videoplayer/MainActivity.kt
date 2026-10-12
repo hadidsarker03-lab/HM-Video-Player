@@ -99,7 +99,7 @@ class MainActivity : MediaActivity() {
         }
 
         setContentView(R.layout.activity_main)
-        UiKit.applyInsets(this, findViewById(R.id.root), findViewById(R.id.headerRow), true)
+        UiKit.applyInsets(this, findViewById(R.id.root), findViewById(R.id.headerRow), false)
 
         titleView = findViewById(R.id.title)
         searchBar = findViewById(R.id.searchBar)
@@ -111,6 +111,9 @@ class MainActivity : MediaActivity() {
         btnView = findViewById(R.id.btnView)
         content = findViewById(R.id.content)
         recycler = findViewById(R.id.recycler)
+        recycler.setHasFixedSize(true)
+        recycler.setItemViewCacheSize(14)
+        recycler.itemAnimator = null
         progress = findViewById(R.id.progress)
         emptyBox = findViewById(R.id.emptyBox)
         emptyIcon = findViewById(R.id.emptyIcon)
@@ -176,13 +179,16 @@ class MainActivity : MediaActivity() {
                 R.id.nav_me -> TAB_ME
                 else -> TAB_VIDEO
             }
+            var dir = 0
             if (newTab != tab) {
                 selection.exit()
                 if (searchBar.visibility == View.VISIBLE) closeSearch()
+                dir = if (newTab > tab) 1 else -1
                 tab = newTab
+                Anim.bounceNavIcon(nav, item.itemId)
             }
             buildTabs()
-            refresh(true)
+            refresh(true, dir)
             true
         }
 
@@ -329,12 +335,18 @@ class MainActivity : MediaActivity() {
             bar.layoutParams = LinearLayout.LayoutParams(UiKit.dp(this, 20), UiKit.dp(this, 3))
                 .apply { topMargin = UiKit.dp(this@MainActivity, 4) }
             bar.visibility = if (selected) View.VISIBLE else View.INVISIBLE
+            if (selected) {
+                bar.scaleX = 0f
+                bar.animate().scaleX(1f).setDuration(260)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+            }
             cell.addView(bar)
 
             cell.setOnClickListener {
+                val d = if (i > sub) 1 else if (i < sub) -1 else 0
                 sub = i
                 buildTabs()
-                refresh(true)
+                refresh(true, d)
             }
             tabRow.addView(cell)
         }
@@ -416,7 +428,7 @@ class MainActivity : MediaActivity() {
     }
 
     // ---------- তালিকা দেখানো ----------
-    private fun refresh(animate: Boolean = false) {
+    private fun refresh(animate: Boolean = false, dir: Int = 0) {
         val isMe = tab == TAB_ME
         pageMe.visibility = if (isMe) View.VISIBLE else View.GONE
         subRow.visibility = if (isMe) View.GONE else View.VISIBLE
@@ -435,10 +447,7 @@ class MainActivity : MediaActivity() {
                 else -> showPlaylists(audio)
             }
         }
-        if (animate) {
-            content.alpha = 0f
-            content.animate().alpha(1f).setDuration(200).start()
-        }
+        if (animate) Anim.slideIn(content, dir)
     }
 
     private fun showEmpty(audio: Boolean, message: Int, withButtons: Boolean) {

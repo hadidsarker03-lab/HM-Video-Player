@@ -178,22 +178,23 @@
         <include layout="@layout/page_me" />
     </FrameLayout>
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/hmDivider" />
+
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/nav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="22dp"
-        android:layout_marginTop="6dp"
-        android:layout_marginBottom="10dp"
-        android:background="@drawable/bg_nav_glass"
-        android:elevation="6dp"
-        app:backgroundTint="@null"
-        app:elevation="6dp"
-        app:itemActiveIndicatorStyle="@style/HMNavIndicator"
+        android:elevation="0dp"
+        app:backgroundTint="?attr/hmSurface"
+        app:elevation="0dp"
+        app:itemActiveIndicatorEnabled="false"
+        app:itemBackground="@drawable/bg_nav_item"
         app:itemIconTint="@color/nav_item"
         app:itemRippleColor="@android:color/transparent"
         app:itemTextColor="@color/nav_item"
         app:labelVisibilityMode="labeled"
-        app:menu="@menu/bottom_nav"
-        app:paddingBottomSystemWindowInsets="false" />
+        app:menu="@menu/bottom_nav" />
 </LinearLayout>

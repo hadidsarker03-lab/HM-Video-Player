@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- যে ট্যাবে আছি শুধু সেটার পেছনে নরম গ্লো -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:enterFadeDuration="280"
+    android:exitFadeDuration="280">
+    <item android:state_checked="true">
+        <shape android:shape="rectangle">
+            <gradient
+                android:centerX="0.5"
+                android:centerY="0.4"
+                android:endColor="#00000000"
+                android:gradientRadius="46%"
+                android:startColor="@color/nav_glow"
+                android:type="radial" />
+        </shape>
+    </item>
+    <item android:drawable="@android:color/transparent" />
+</selector>

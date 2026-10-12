@@ -9,6 +9,7 @@ import android.content.Context
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 
 // তালিকার সারি: মাসের হেডার অথবা ভিডিও/গান
 sealed class Row {
@@ -101,12 +102,17 @@ class VideoAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
-        return when (viewType) {
+        val vh: RecyclerView.ViewHolder = when (viewType) {
             0 -> HeaderVH(inflater.inflate(R.layout.item_header, parent, false))
             1 -> ItemVH(inflater.inflate(R.layout.item_video, parent, false))
             2 -> ItemVH(inflater.inflate(R.layout.item_video_grid, parent, false))
             else -> ItemVH(inflater.inflate(R.layout.item_video_compact, parent, false))
         }
+        if (vh is ItemVH) {
+            Anim.pressable(vh.itemView, 0.97f)
+            Anim.pressable(vh.more, 0.8f)
+        }
+        return vh
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
@@ -150,7 +156,8 @@ class VideoAdapter(
             h.thumb.scaleType = ImageView.ScaleType.CENTER_CROP
             h.thumb.setBackgroundColor(0)
             h.thumb.setPadding(0, 0, 0, 0)
-            Glide.with(h.thumb).load(v.uri).centerCrop().into(h.thumb)
+            Glide.with(h.thumb).load(v.uri).centerCrop().override(360, 240)
+                .transition(DrawableTransitionOptions.withCrossFade(160)).into(h.thumb)
         }
         val sel = key(v) in selected
         val accent = ContextCompat.getColor(ctx, R.color.accent)

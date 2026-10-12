@@ -40,6 +40,9 @@ class MediaListActivity : MediaActivity() {
         name = intent.getStringExtra(EXTRA_NAME) ?: ""
 
         recycler = findViewById(R.id.recycler)
+        recycler.setHasFixedSize(true)
+        recycler.setItemViewCacheSize(14)
+        recycler.itemAnimator = null
         emptyText = findViewById(R.id.emptyText)
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
         findViewById<TextView>(R.id.title).text = when (mode) {
