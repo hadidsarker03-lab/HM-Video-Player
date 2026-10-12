@@ -25,8 +25,51 @@ class VideoAdapter(
     private var rows: List<Row> = emptyList()
     private var mode = AppSettings.viewMode(ctx)
 
+    // ---- একাধিক সিলেকশন ----
+    val selected = LinkedHashSet<String>()
+    var selecting = false
+        private set
+    var onSelectionChanged: (() -> Unit)? = null
+
+    private fun key(v: Video) = (if (v.isAudio) "a:" else "v:") + v.id
+
+    fun selectedVideos(): List<Video> =
+        rows.mapNotNull { (it as? Row.Item)?.video }.filter { key(it) in selected }
+
+    private fun toggle(v: Video) {
+        val k = key(v)
+        if (!selected.add(k)) selected.remove(k)
+        selecting = selected.isNotEmpty()
+        val i = rows.indexOfFirst { it is Row.Item && key(it.video) == k }
+        if (i >= 0) notifyItemChanged(i)
+        onSelectionChanged?.invoke()
+    }
+
+    fun selectAll() {
+        rows.forEach { if (it is Row.Item) selected.add(key(it.video)) }
+        selecting = selected.isNotEmpty()
+        notifyDataSetChanged()
+        onSelectionChanged?.invoke()
+    }
+
+    fun clearSelection() {
+        if (!selecting && selected.isEmpty()) return
+        selected.clear()
+        selecting = false
+        notifyDataSetChanged()
+        onSelectionChanged?.invoke()
+    }
+
+    fun startSelection(v: Video) = toggle(v)
+
     fun submit(list: List<Row>) {
         rows = list
+        if (selected.isNotEmpty()) {
+            val keys = list.mapNotNull { (it as? Row.Item)?.let { r -> key(r.video) } }.toSet()
+            selected.retainAll(keys)
+            selecting = selected.isNotEmpty()
+            onSelectionChanged?.invoke()
+        }
         notifyDataSetChanged()
     }
 
@@ -109,7 +152,13 @@ class VideoAdapter(
             h.thumb.setPadding(0, 0, 0, 0)
             Glide.with(h.thumb).load(v.uri).centerCrop().into(h.thumb)
         }
-        h.itemView.setOnClickListener { onClick(v) }
+        val sel = key(v) in selected
+        val accent = ContextCompat.getColor(ctx, R.color.accent)
+        h.itemView.foreground =
+            if (sel) android.graphics.drawable.ColorDrawable((accent and 0x00FFFFFF) or 0x55000000)
+            else null
+        h.itemView.setOnClickListener { if (selecting) toggle(v) else onClick(v) }
+        h.itemView.setOnLongClickListener { toggle(v); true }
         h.more.setOnClickListener { onMore(v, it) }
     }
 

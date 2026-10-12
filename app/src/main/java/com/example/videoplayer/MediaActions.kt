@@ -1,6 +1,11 @@
 package com.example.videoplayer
 
+import android.app.RecoverableSecurityException
+import android.content.ContentValues
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
 import android.view.View
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -32,8 +37,8 @@ object MediaActions {
     }
 
     fun showMenu(
-        act: AppCompatActivity, anchor: View, v: Video, queue: List<Video>,
-        playlistName: String?, onChanged: () -> Unit
+        act: MediaActivity, anchor: View, v: Video, queue: List<Video>,
+        playlistName: String?, onSelect: () -> Unit = {}, onChanged: () -> Unit
     ) {
         val pm = PopupMenu(act, anchor)
         val fav = Store.isFav(act, v.isAudio, v.id)
@@ -43,6 +48,10 @@ object MediaActions {
         if (playlistName != null) pm.menu.add(0, 6, 3, R.string.menu_remove_playlist)
         pm.menu.add(0, 4, 4, R.string.menu_share)
         pm.menu.add(0, 5, 5, R.string.menu_details)
+        pm.menu.add(0, 7, 6, R.string.menu_rename)
+        pm.menu.add(0, 8, 7, R.string.menu_select)
+        pm.menu.add(0, 10, 8, R.string.menu_hide)
+        pm.menu.add(0, 9, 9, R.string.btn_delete)
         pm.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 1 -> play(act, queue, v)
@@ -53,6 +62,10 @@ object MediaActions {
                 3 -> addToPlaylist(act, v)
                 4 -> share(act, v)
                 5 -> details(act, v)
+                7 -> rename(act, v) { onChanged() }
+                8 -> onSelect()
+                9 -> delete(act, listOf(v)) { onChanged() }
+                10 -> PrivacyOps.hide(act, listOf(v)) { onChanged() }
                 6 -> {
                     if (playlistName != null) {
                         Store.removeFromPlaylist(act, v.isAudio, playlistName, v.id)
@@ -131,5 +144,173 @@ object MediaActions {
             .setMessage(sb.toString())
             .setPositiveButton(R.string.btn_close, null)
             .show()
+    }
+
+    // ---------- ডিলিট (একটি বা একাধিক) ----------
+    fun delete(act: MediaActivity, items: List<Video>, onDone: () -> Unit) {
+        if (items.isEmpty()) return
+        val msg = if (items.size == 1) act.getString(R.string.delete_file_q, items[0].title)
+        else act.getString(R.string.delete_files_q, items.size)
+        MaterialAlertDialogBuilder(act)
+            .setMessage(msg)
+            .setPositiveButton(R.string.btn_delete) { _, _ -> runDelete(act, items, onDone) }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    private fun runDelete(act: MediaActivity, items: List<Video>, onDone: () -> Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val pi = MediaStore.createDeleteRequest(act.contentResolver, items.map { it.uri })
+                act.requestGrant(pi.intentSender) { finishChange(act, items.size, R.string.deleted, onDone) }
+            } catch (e: Exception) {
+                Toast.makeText(act, R.string.action_failed, Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+        deleteLegacy(act, items, 0, 0, onDone)
+    }
+
+    // Android 10 ও আগের জন্য: একটি একটি করে মোছা; দরকারে সিস্টেম অনুমতি চায়
+    fun deleteLegacy(
+        act: MediaActivity, items: List<Video>, from: Int, doneSoFar: Int, onDone: () -> Unit,
+        msg: Int = R.string.deleted
+    ) {
+        var i = from
+        var ok = doneSoFar
+        while (i < items.size) {
+            try {
+                if (act.contentResolver.delete(items[i].uri, null, null) > 0) ok++
+                i++
+            } catch (e: SecurityException) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
+                    val next = i
+                    val soFar = ok
+                    act.requestGrant(e.userAction.actionIntent.intentSender) {
+                        deleteLegacy(act, items, next, soFar, onDone, msg)
+                    }
+                    return
+                }
+                i++
+            } catch (e: Exception) {
+                i++
+            }
+        }
+        finishChange(act, ok, msg, onDone)
+    }
+
+    fun finishChange(act: MediaActivity, count: Int, msg: Int, onDone: () -> Unit) {
+        Thread {
+            Library.reload(act.applicationContext)
+            act.runOnUiThread {
+                if (count > 0 && msg != 0) Toast.makeText(act, msg, Toast.LENGTH_SHORT).show()
+                onDone()
+            }
+        }.start()
+    }
+
+    // ---------- রিনেম ----------
+    fun rename(act: MediaActivity, v: Video, onDone: () -> Unit) {
+        val input = EditText(act)
+        input.setText(v.title)
+        input.setSingleLine()
+        input.selectAll()
+        val box = FrameLayout(act)
+        val m = UiKit.dp(act, 22)
+        box.setPadding(m, UiKit.dp(act, 8), m, 0)
+        box.addView(input)
+        MaterialAlertDialogBuilder(act)
+            .setTitle(R.string.menu_rename)
+            .setView(box)
+            .setPositiveButton(R.string.btn_ok) { _, _ ->
+                val name = input.text.toString().trim().replace('/', '_')
+                if (name.isNotEmpty() && name != v.title) runRename(act, v, name, onDone)
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    private fun displayExt(act: MediaActivity, uri: Uri): String {
+        return try {
+            act.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
+                ?.use { c ->
+                    if (c.moveToFirst()) {
+                        val n = c.getString(0) ?: ""
+                        if (n.contains('.')) "." + n.substringAfterLast('.') else ""
+                    } else ""
+                } ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    private fun runRename(act: MediaActivity, v: Video, name: String, onDone: () -> Unit) {
+        val full = name + displayExt(act, v.uri)
+        val doUpdate = {
+            try {
+                val cv = ContentValues().apply { put(MediaStore.MediaColumns.DISPLAY_NAME, full) }
+                val n = act.contentResolver.update(v.uri, cv, null, null)
+                finishChange(act, n, R.string.renamed, onDone)
+            } catch (e: SecurityException) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
+                    act.requestGrant(e.userAction.actionIntent.intentSender) { runRename(act, v, name, onDone) }
+                } else Toast.makeText(act, R.string.action_failed, Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(act, R.string.action_failed, Toast.LENGTH_SHORT).show()
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val pi = MediaStore.createWriteRequest(act.contentResolver, listOf(v.uri))
+                act.requestGrant(pi.intentSender) { doUpdate() }
+            } catch (e: Exception) {
+                Toast.makeText(act, R.string.action_failed, Toast.LENGTH_SHORT).show()
+            }
+        } else doUpdate()
+    }
+
+    // ---------- একাধিকের জন্য প্রিয়/প্লেলিস্ট/শেয়ার ----------
+    fun favoriteMany(act: MediaActivity, items: List<Video>) {
+        if (items.isEmpty()) return
+        val allFav = items.all { Store.isFav(act, it.isAudio, it.id) }
+        for (v in items) {
+            val fav = Store.isFav(act, v.isAudio, v.id)
+            if (allFav == fav) Store.toggleFav(act, v.isAudio, v.id)
+        }
+        Toast.makeText(act, if (allFav) R.string.removed else R.string.added_to_playlist, Toast.LENGTH_SHORT).show()
+    }
+
+    fun addManyToPlaylist(act: MediaActivity, items: List<Video>, onDone: () -> Unit) {
+        if (items.isEmpty()) return
+        val audio = items[0].isAudio
+        val list = items.filter { it.isAudio == audio }
+        val addAll = { name: String ->
+            list.forEach { Store.addToPlaylist(act, audio, name, it.id) }
+            Toast.makeText(act, R.string.added_to_playlist, Toast.LENGTH_SHORT).show()
+            onDone()
+        }
+        val names = Store.playlists(act, audio).keys.toList()
+        if (names.isEmpty()) {
+            promptNewPlaylist(act, audio) { addAll(it) }
+            return
+        }
+        val labels = (names + act.getString(R.string.new_playlist)).toTypedArray()
+        MaterialAlertDialogBuilder(act)
+            .setTitle(R.string.menu_add_playlist)
+            .setItems(labels) { _, which ->
+                if (which < names.size) addAll(names[which])
+                else promptNewPlaylist(act, audio) { addAll(it) }
+            }
+            .show()
+    }
+
+    fun shareMany(act: MediaActivity, items: List<Video>) {
+        if (items.isEmpty()) return
+        val send = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "*/*"
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(items.map { it.uri }))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        act.startActivity(Intent.createChooser(send, act.getString(R.string.share_via)))
     }
 }

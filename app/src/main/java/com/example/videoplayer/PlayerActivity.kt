@@ -210,6 +210,8 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // কনটেন্ট দেখানোর আগেই নচ/ক্যামেরা এলাকা ও ফুলস্ক্রিন সেট (নইলে কালো পাশ থেকে যায়)
+        enterImmersive()
         setContentView(R.layout.activity_player)
 
         val resume = intent.getBooleanExtra(EXTRA_RESUME, false)
@@ -542,13 +544,21 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     // ---------- শর্টকাট সারি ----------
+    // সবসময় দেখানো শর্টকাট; বাকিগুলো " > " তীরে চাপলে অ্যানিমেশনসহ বের হয়
+    private val alwaysVisible = setOf(Shortcut.SPEED, Shortcut.LOOP, Shortcut.MUTE)
+    private var shortcutsExpanded = false
+    private var extraRow: LinearLayout? = null
+    private var arrowView: View? = null
+
     private fun buildShortcuts() {
         shortcutRow.removeAllViews()
         shortcutViews.clear()
         shortcutScroll.visibility = if (AppSettings.shortcutsOn(this)) View.VISIBLE else View.GONE
         val hidden = AppSettings.hiddenShortcuts(this)
-        for (s in Shortcut.values()) {
-            if (s.key in hidden) continue
+        val extra = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        var extraCount = 0
+        // প্রথমে স্থির তিনটি (Shortcut তালিকার ক্রমে), তারপর তীর, তারপর বাকিগুলো
+        fun make(s: Shortcut): View {
             val v = layoutInflater.inflate(R.layout.item_shortcut, shortcutRow, false)
             v.findViewById<ImageView>(R.id.scIcon).setImageResource(s.icon)
             v.findViewById<TextView>(R.id.scLabel).setText(s.label)
@@ -556,10 +566,76 @@ class PlayerActivity : AppCompatActivity() {
                 onShortcut(s)
                 scheduleAutoHide()
             }
-            shortcutRow.addView(v)
             shortcutViews[s] = v
+            return v
+        }
+        for (s in Shortcut.values()) {
+            if (s.key in hidden || s !in alwaysVisible) continue
+            shortcutRow.addView(make(s))
+        }
+        for (s in Shortcut.values()) {
+            if (s.key in hidden || s in alwaysVisible) continue
+            extra.addView(make(s))
+            extraCount++
+        }
+        if (extraCount > 0) {
+            val arrow = layoutInflater.inflate(R.layout.item_shortcut, shortcutRow, false)
+            arrow.findViewById<ImageView>(R.id.scIcon).setImageResource(R.drawable.ic_chevron)
+            arrow.findViewById<TextView>(R.id.scLabel).text = ""
+            arrow.rotation = if (shortcutsExpanded) 180f else 0f
+            arrow.setOnClickListener {
+                toggleShortcutsExpanded()
+                scheduleAutoHide()
+            }
+            shortcutRow.addView(arrow)
+            shortcutRow.addView(extra)
+            arrowView = arrow
+            extraRow = extra
+            extra.visibility = if (shortcutsExpanded) View.VISIBLE else View.GONE
+        } else {
+            arrowView = null
+            extraRow = null
         }
         updateShortcutStates()
+    }
+
+    private fun toggleShortcutsExpanded() {
+        val extra = extraRow ?: return
+        val arrow = arrowView ?: return
+        shortcutsExpanded = !shortcutsExpanded
+        arrow.animate().cancel()
+        arrow.animate().rotation(if (shortcutsExpanded) 180f else 0f).setDuration(250).start()
+        extra.animate().cancel()
+        val lp = extra.layoutParams
+        val wSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        extra.measure(wSpec, wSpec)
+        val full = extra.measuredWidth
+        val from = if (shortcutsExpanded) 0 else full
+        val to = if (shortcutsExpanded) full else 0
+        extra.visibility = View.VISIBLE
+        extra.alpha = if (shortcutsExpanded) 0f else 1f
+        android.animation.ValueAnimator.ofInt(from, to).apply {
+            duration = 300
+            interpolator = DecelerateInterpolator()
+            addUpdateListener {
+                lp.width = it.animatedValue as Int
+                extra.layoutParams = lp
+                extra.alpha = if (full == 0) 1f else (lp.width.toFloat() / full)
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(a: android.animation.Animator) {
+                    if (shortcutsExpanded) {
+                        lp.width = ViewGroup.LayoutParams.WRAP_CONTENT
+                        extra.alpha = 1f
+                    } else {
+                        extra.visibility = View.GONE
+                        lp.width = ViewGroup.LayoutParams.WRAP_CONTENT
+                    }
+                    extra.layoutParams = lp
+                }
+            })
+            start()
+        }
     }
 
     private fun mark(s: Shortcut, on: Boolean) {
@@ -1219,10 +1295,34 @@ class PlayerActivity : AppCompatActivity() {
                 else WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             window.attributes = lp
         }
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    // ঘোরালে নচ/ক্যামেরার পাশেও যেন ভিডিও ভরে যায় এবং ফ্রেম নতুন মাপে বসে
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        enterImmersive()
+        window.decorView.requestApplyInsets()
+        playerView.post { applyAspect(false) }
+    }
+
+    // বের হওয়ার সময় কালো ঝলক এড়াতে সিস্টেম অ্যানিমেশন বন্ধ
+    override fun finish() {
+        super.finish()
+        if (Build.VERSION.SDK_INT >= 34) {
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
+        } else {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, 0)
         }
     }
 

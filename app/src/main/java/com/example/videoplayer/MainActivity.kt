@@ -29,7 +29,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : MediaActivity() {
 
     private lateinit var titleView: TextView
     private lateinit var searchBar: View
@@ -51,6 +51,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var nav: BottomNavigationView
     private lateinit var mediaAdapter: VideoAdapter
     private lateinit var rowAdapter: RowAdapter
+    private lateinit var selection: SelectionBar
+    private var librarySig = 0
 
     private var tab = TAB_VIDEO
     private var sub = SUB_ALL
@@ -121,9 +123,24 @@ class MainActivity : AppCompatActivity() {
             this,
             onClick = { v -> MediaActions.play(this, shown, v) },
             onMore = { v, anchor ->
-                MediaActions.showMenu(this, anchor, v, shown, null) { refresh() }
+                MediaActions.showMenu(
+                    this, anchor, v, shown, null,
+                    onSelect = { mediaAdapter.startSelection(v) }
+                ) { refresh() }
             }
         )
+        selection = SelectionBar(this, findViewById(R.id.root), mediaAdapter) { refresh() }
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (selection.active()) {
+                    selection.exit()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                    isEnabled = true
+                }
+            }
+        })
         rowAdapter = RowAdapter(onClick = { onRowClick(it) }, onLong = { onRowLong(it) })
 
         btnPermission.setOnClickListener { permissionLauncher.launch(requestPermissions) }
@@ -159,6 +176,7 @@ class MainActivity : AppCompatActivity() {
                 else -> TAB_VIDEO
             }
             if (newTab != tab) {
+                selection.exit()
                 if (searchBar.visibility == View.VISIBLE) closeSearch()
                 tab = newTab
             }
@@ -180,7 +198,15 @@ class MainActivity : AppCompatActivity() {
             return
         }
         applyViewMode()
+        if (!Library.loaded) refresh()
         loadMedia()
+        if (tab == TAB_ME) refresh()
+    }
+
+    // ঘোরালে অ্যাক্টিভিটি নতুন করে তৈরি হয় না; শুধু কলাম সংখ্যা ঠিক করা হয়
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        lmKey = ""
         refresh()
     }
 
@@ -217,10 +243,16 @@ class MainActivity : AppCompatActivity() {
         progress.visibility = View.VISIBLE
         executor.execute {
             Library.reload(applicationContext)
+            val sig = (Library.videos.map { it.id to it.title } + Library.audios.map { it.id to it.title })
+                .hashCode()
             runOnUiThread {
                 loading = false
                 progress.visibility = View.GONE
-                refresh()
+                // তালিকা বদলালে তবেই আবার সাজানো হয়
+                if (sig != librarySig) {
+                    librarySig = sig
+                    refresh()
+                }
             }
         }
     }

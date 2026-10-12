@@ -14,11 +14,12 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.util.concurrent.Executors
 
 // ফোল্ডার, প্লেলিস্ট, প্রিয় ও ইতিহাসের তালিকা দেখানোর স্ক্রিন
-class MediaListActivity : AppCompatActivity() {
+class MediaListActivity : MediaActivity() {
 
     private lateinit var recycler: RecyclerView
     private lateinit var emptyText: TextView
     private lateinit var adapter: VideoAdapter
+    private lateinit var selection: SelectionBar
 
     private var mode = MODE_FOLDER
     private var audio = false
@@ -59,11 +60,23 @@ class MediaListActivity : AppCompatActivity() {
             onMore = { v, anchor ->
                 MediaActions.showMenu(
                     this, anchor, v, items,
-                    if (mode == MODE_PLAYLIST) name else null
+                    if (mode == MODE_PLAYLIST) name else null,
+                    onSelect = { adapter.startSelection(v) }
                 ) { render() }
             }
         )
         recycler.adapter = adapter
+        selection = SelectionBar(this, findViewById(R.id.root), adapter) { render() }
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (selection.active()) {
+                    selection.exit()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
     }
 
     override fun onResume() {

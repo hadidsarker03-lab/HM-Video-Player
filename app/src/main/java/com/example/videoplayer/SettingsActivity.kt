@@ -64,6 +64,10 @@ class SettingsActivity : AppCompatActivity() {
             getString(R.string.set_audio_sub)) { open(SEC_AUDIO) }
         UiKit.row(this, list, R.drawable.ic_info, getString(R.string.me_about),
             getString(R.string.set_about_sub)) { open(SEC_ABOUT) }
+        UiKit.row(this, list, R.drawable.ic_lock, getString(R.string.privacy),
+            getString(R.string.privacy_sub)) {
+            startActivity(Intent(this, PrivacyActivity::class.java))
+        }
     }
 
     private fun general(list: LinearLayout) {
