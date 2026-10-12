@@ -190,7 +190,6 @@
         android:elevation="0dp"
         app:backgroundTint="?attr/hmSurface"
         app:elevation="0dp"
-        app:itemActiveIndicatorEnabled="false"
         app:itemBackground="@drawable/bg_nav_item"
         app:itemIconTint="@color/nav_item"
         app:itemRippleColor="@android:color/transparent"

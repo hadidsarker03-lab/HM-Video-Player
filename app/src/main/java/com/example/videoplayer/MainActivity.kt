@@ -122,6 +122,7 @@ class MainActivity : MediaActivity() {
         btnSample = findViewById(R.id.btnSample)
         pageMe = findViewById(R.id.pageMe)
         nav = findViewById(R.id.nav)
+        nav.isItemActiveIndicatorEnabled = false
 
         mediaAdapter = VideoAdapter(
             this,
