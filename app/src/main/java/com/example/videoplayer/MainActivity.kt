@@ -319,7 +319,8 @@ class MainActivity : MediaActivity() {
             val cell = LinearLayout(this)
             cell.orientation = LinearLayout.VERTICAL
             cell.gravity = Gravity.CENTER_HORIZONTAL
-            cell.setPadding(0, UiKit.dp(this, 10), UiKit.dp(this, 22), UiKit.dp(this, 4))
+            cell.setPadding(UiKit.dp(this, 14), UiKit.dp(this, 9), UiKit.dp(this, 14), UiKit.dp(this, 9))
+            cell.setBackgroundResource(if (selected) R.drawable.bg_tab_on else R.drawable.bg_tab)
 
             val tv = TextView(this)
             tv.setText(res)
@@ -343,12 +344,8 @@ class MainActivity : MediaActivity() {
             bar.setBackgroundResource(R.drawable.bg_indicator)
             bar.layoutParams = LinearLayout.LayoutParams(UiKit.dp(this, 20), UiKit.dp(this, 3))
                 .apply { topMargin = UiKit.dp(this@MainActivity, 4) }
-            bar.visibility = if (selected) View.VISIBLE else View.INVISIBLE
-            if (selected) {
-                bar.scaleX = 0f
-                bar.animate().scaleX(1f).setDuration(260)
-                    .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
-            }
+            // নিচের দাগ আর লাগে না: নির্বাচিত ট্যাব Neumorphism-এ ভেতরে বসা দেখায়
+            bar.visibility = View.GONE
             cell.addView(bar)
 
             cell.setOnClickListener {
@@ -357,7 +354,9 @@ class MainActivity : MediaActivity() {
                 buildTabs()
                 refresh(true, d)
             }
-            tabRow.addView(cell)
+            tabRow.addView(cell, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { marginEnd = UiKit.dp(this@MainActivity, 8); topMargin = UiKit.dp(this@MainActivity, 6); bottomMargin = UiKit.dp(this@MainActivity, 6) })
         }
     }
 

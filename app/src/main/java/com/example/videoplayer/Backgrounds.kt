@@ -31,11 +31,31 @@ object Backgrounds {
     fun customKeys(ctx: Context): List<String> =
         (File(ctx.filesDir, DIR).listFiles() ?: emptyArray()).sortedBy { it.name }.map { "file:${it.name}" }
 
-    fun selected(ctx: Context): String =
-        AppSettings.prefs(ctx).getString("bg_sel", NONE) ?: NONE
+    // সাদাটে ডিফল্ট ওয়ালপেপার: শুধু লাইট মোডে চলে, ডার্কে কখনো না
+    const val WHITE = "asset:bg_00.jpg"
+
+    // এখন ডার্ক মোড চলছে কি (থিম সেটিং অনুযায়ী; সিস্টেম হলে ফোনের সেটিং)
+    fun isDark(ctx: Context): Boolean = when (AppSettings.themeMode(ctx)) {
+        "dark" -> true
+        "light" -> false
+        else -> (android.content.res.Resources.getSystem().configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+    }
+
+    private fun selKey(dark: Boolean) = if (dark) "bg_sel_dark" else "bg_sel_light"
+
+    // লাইট ও ডার্ক মোডের ওয়ালপেপার আলাদা আলাদা মনে রাখা হয়; মোড বদলালে নিজে থেকেই সেটা আসে
+    fun selected(ctx: Context): String {
+        val dark = isDark(ctx)
+        val v = AppSettings.prefs(ctx).getString(selKey(dark), null)
+        if (dark) return if (v == null || v == WHITE) NONE else v
+        return v ?: if (AppSettings.glass(ctx)) WHITE else NONE
+    }
 
     fun select(ctx: Context, key: String) {
-        AppSettings.prefs(ctx).edit().putString("bg_sel", key).apply()
+        val dark = isDark(ctx)
+        if (dark && key == WHITE) return
+        AppSettings.prefs(ctx).edit().putString(selKey(dark), key).apply()
     }
 
     // ব্যাকগ্রাউন্ড ব্লার: 0..100 (০ = ঝাপসা নয়)
@@ -110,7 +130,7 @@ object Backgrounds {
             o.inJustDecodeBounds = true
             open().use { BitmapFactory.decodeStream(it, null, o) }
             var s = 1
-            while (max(o.outWidth, o.outHeight) / s > maxSide) s *= 2
+            while (max(o.outWidth, o.outHeight) / (s * 2) >= maxSide) s *= 2
             val o2 = BitmapFactory.Options()
             o2.inSampleSize = s
             open().use { BitmapFactory.decodeStream(it, null, o2) }
@@ -126,16 +146,21 @@ object Backgrounds {
             o.inJustDecodeBounds = true
             ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, o) }
             var s = 1
-            while (max(o.outWidth, o.outHeight) / s > 1800) s *= 2
+            while (max(o.outWidth, o.outHeight) / (s * 2) >= 2560) s *= 2
             val o2 = BitmapFactory.Options()
             o2.inSampleSize = s
-            val bmp = ctx.contentResolver.openInputStream(uri)?.use {
+            var bmp = ctx.contentResolver.openInputStream(uri)?.use {
                 BitmapFactory.decodeStream(it, null, o2)
             } ?: return null
+            val big = max(bmp.width, bmp.height)
+            if (big > 2560) {
+                val k = 2560f / big
+                bmp = Bitmap.createScaledBitmap(bmp, (bmp.width * k).toInt(), (bmp.height * k).toInt(), true)
+            }
             val dir = File(ctx.filesDir, DIR)
             dir.mkdirs()
             val name = "u" + System.currentTimeMillis() + ".jpg"
-            File(dir, name).outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 88, it) }
+            File(dir, name).outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 94, it) }
             bmp.recycle()
             "file:$name"
         } catch (e: Exception) {
@@ -147,7 +172,11 @@ object Backgrounds {
         try {
             File(File(ctx.filesDir, DIR), key.removePrefix("file:")).delete()
         } catch (e: Exception) { }
-        if (selected(ctx) == key) select(ctx, NONE)
+        val ed = AppSettings.prefs(ctx).edit()
+        for (d in listOf(true, false)) {
+            if (AppSettings.prefs(ctx).getString(selKey(d), null) == key) ed.putString(selKey(d), NONE)
+        }
+        ed.apply()
         cacheKey = null
         cacheBmp = null
     }
@@ -172,13 +201,31 @@ object Backgrounds {
         val ck = "$key|$level"
         var bmp = if (cacheKey == ck) cacheBmp else null
         if (bmp == null) {
-            val raw = decode(act, key, 1800)
-            bmp = if (raw != null) blurred(raw, level) else null
+            val raw = decode(act, key, 2560)
+            bmp = if (raw != null) blurred(smoothFit(act, raw), level) else null
             cacheKey = ck
             cacheBmp = bmp
         }
         if (bmp == null) return
         act.window.setBackgroundDrawable(CropDrawable(bmp))
+    }
+
+    // ছোট ছবি স্ক্রিনের মাপে ধাপে ধাপে বড় করে (প্রতি ধাপে সর্বোচ্চ ২x) — তাহলে ফেটে/চৌকো দেখায় না
+    private fun smoothFit(act: Activity, src: Bitmap): Bitmap {
+        val dm = act.resources.displayMetrics
+        val need = max(dm.widthPixels.toFloat() / src.width, dm.heightPixels.toFloat() / src.height)
+        if (need <= 1.05f) return src
+        var cur = src
+        var scale = need
+        while (scale > 1.01f) {
+            val step = if (scale > 2f) 2f else scale
+            val nw = (cur.width * step).toInt()
+            val nh = (cur.height * step).toInt()
+            val next = try { Bitmap.createScaledBitmap(cur, nw, nh, true) } catch (e: Throwable) { return cur }
+            cur = next
+            scale /= step
+        }
+        return cur
     }
 
     // ছবিকে স্ক্রিন ভরে (center-crop) আঁকে — কোনো ঝাপসা/ধূসর স্তর নেই

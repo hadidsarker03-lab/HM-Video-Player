@@ -1,18 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- যে ট্যাবে আছি শুধু সেটার পেছনে নরম গ্লো -->
+<!-- নিচের ট্যাব: প্রতিটা আলাদা Neumorphism বোতাম; যেটায় আছি সেটা ভেতরে বসা + গ্লো -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android"
     android:enterFadeDuration="280"
     android:exitFadeDuration="280">
     <item android:state_checked="true">
-        <shape android:shape="rectangle">
-            <gradient
-                android:centerX="0.5"
-                android:centerY="0.4"
-                android:endColor="#00000000"
-                android:gradientRadius="46%"
-                android:startColor="@color/nav_glow"
-                android:type="radial" />
-        </shape>
+        <inset
+            android:insetLeft="12dp"
+            android:insetTop="8dp"
+            android:insetRight="12dp"
+            android:insetBottom="8dp">
+            <layer-list>
+                <item android:drawable="@drawable/bg_tab_on" />
+                <item android:left="6dp" android:top="6dp" android:right="6dp" android:bottom="6dp">
+                    <shape android:shape="rectangle">
+                        <gradient
+                            android:centerX="0.5"
+                            android:centerY="0.4"
+                            android:endColor="#00000000"
+                            android:gradientRadius="60%"
+                            android:startColor="@color/nav_glow"
+                            android:type="radial" />
+                        <corners android:radius="16dp" />
+                    </shape>
+                </item>
+            </layer-list>
+        </inset>
     </item>
-    <item android:drawable="@android:color/transparent" />
+    <item>
+        <inset
+            android:insetLeft="12dp"
+            android:insetTop="8dp"
+            android:insetRight="12dp"
+            android:insetBottom="8dp"
+            android:drawable="@drawable/bg_tab" />
+    </item>
 </selector>

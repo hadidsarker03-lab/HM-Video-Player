@@ -203,6 +203,7 @@ class ThemeActivity : AppCompatActivity() {
 
     // ব্যাকগ্রাউন্ড বাছাই: সিস্টেম ওয়ালপেপার, অ্যাপের ছবি, নিজের আপলোড
     private fun backgroundStrip(accent: Int, fg: Int): View {
+        val dark = Backgrounds.isDark(this)
         val box = LinearLayout(this)
         box.orientation = LinearLayout.VERTICAL
         val title = TextView(this)
@@ -264,6 +265,8 @@ class ThemeActivity : AppCompatActivity() {
             null, { choose(Backgrounds.NONE) }, null
         )
         for (k in Backgrounds.assetKeys(this)) {
+            // ডার্ক মোডে সাদাটে ওয়ালপেপার দেখানো/বাছা যাবে না
+            if (dark && k == Backgrounds.WHITE) continue
             tile(k, 0, Backgrounds.decode(this, k, 220), { choose(k) }, null)
         }
         for (k in Backgrounds.customKeys(this)) {

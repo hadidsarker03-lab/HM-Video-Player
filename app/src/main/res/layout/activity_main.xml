@@ -178,17 +178,12 @@
         <include layout="@layout/page_me" />
     </FrameLayout>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="?attr/hmDivider" />
-
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/nav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:elevation="0dp"
-        app:backgroundTint="?attr/hmSurface"
+        app:backgroundTint="@android:color/transparent"
         app:elevation="0dp"
         app:itemBackground="@drawable/bg_nav_item"
         app:itemIconTint="@color/nav_item"
