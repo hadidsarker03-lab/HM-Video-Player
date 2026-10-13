@@ -137,7 +137,10 @@ class MainActivity : MediaActivity() {
                 ) { refresh() }
             }
         )
-        selection = SelectionBar(this, findViewById(R.id.root), mediaAdapter) { refresh() }
+        selection = SelectionBar(
+            this, findViewById(R.id.root), mediaAdapter,
+            hideView = findViewById(R.id.nav), handleInset = true
+        ) { refresh() }
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (selection.active()) {

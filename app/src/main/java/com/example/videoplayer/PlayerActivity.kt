@@ -77,6 +77,7 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var titleView: TextView
     private lateinit var shortcutRow: LinearLayout
     private lateinit var shortcutScroll: View
+    private var shortcutTouching = false
     private lateinit var nightOverlay: View
     private lateinit var morePanel: View
     private lateinit var morePanelContent: LinearLayout
@@ -114,7 +115,8 @@ class PlayerActivity : AppCompatActivity() {
     private var controlsVisible = true
     private var dragging = false
     private val autoHide = Runnable {
-        if (!isAudio && player?.isPlaying == true && !dragging) hideControls() else scheduleAutoHide()
+        if (!isAudio && player?.isPlaying == true && !dragging && !shortcutTouching) hideControls()
+        else scheduleAutoHide()
     }
     private val ticker = object : Runnable {
         override fun run() {
@@ -280,6 +282,20 @@ class PlayerActivity : AppCompatActivity() {
         btnNext = findViewById(R.id.btnNext)
         shortcutRow = findViewById(R.id.shortcutRow)
         shortcutScroll = findViewById(R.id.shortcutScroll)
+        // শর্টকাট ধরে/স্ক্রল করার সময় কন্ট্রোল অটো-হাইড হবে না
+        shortcutScroll.setOnTouchListener { _, e ->
+            when (e.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_MOVE -> {
+                    shortcutTouching = true
+                    handler.removeCallbacks(autoHide)
+                }
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                    shortcutTouching = false
+                    scheduleAutoHide()
+                }
+            }
+            false
+        }
         nightOverlay = findViewById(R.id.nightOverlay)
         morePanel = findViewById(R.id.morePanel)
         morePanelContent = findViewById(R.id.morePanelContent)
@@ -610,8 +626,8 @@ class PlayerActivity : AppCompatActivity() {
                 toggleShortcutsExpanded()
                 scheduleAutoHide()
             }
-            shortcutRow.addView(arrow)
             shortcutRow.addView(extra)
+            shortcutRow.addView(arrow)
             Anim.attachTree(shortcutRow)
             arrowView = arrow
             extraRow = extra

@@ -139,6 +139,16 @@ class LiveTvActivity : AppCompatActivity() {
     private class Result(val entries: List<Entry>, val playUrl: String?, val error: Boolean)
 
     private fun load() {
+        if (intent.getStringExtra(EXTRA_URL) == null) {
+            // হোম: সংরক্ষিত সার্ভার তালিকা (নেট ছাড়াই দেখা যায়); সার্ভারে চাপলে তার চ্যানেল লোড হয়
+            token++
+            progress.visibility = View.GONE
+            status.visibility = View.GONE
+            retry.visibility = View.GONE
+            all = TvServers.list.map { Entry(it.first, it.second, KIND_FOLDER, null) }
+            render()
+            return
+        }
         val my = ++token
         progress.visibility = View.VISIBLE
         retry.visibility = View.GONE
