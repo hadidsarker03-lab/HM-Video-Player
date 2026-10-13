@@ -126,6 +126,59 @@ object UiKit {
         }
     }
 
+    // 3-dot মেনু: প্রতিটা লেখা আলাদা বর্ডার (Neumorphism) বক্সে
+    fun borderedMenu(
+        act: AppCompatActivity, anchor: View, items: List<Pair<Int, Int>>, onPick: (Int) -> Unit
+    ) {
+        val box = android.widget.LinearLayout(act)
+        box.orientation = android.widget.LinearLayout.VERTICAL
+        box.setPadding(dp(act, 6), dp(act, 6), dp(act, 6), dp(act, 6))
+        val scroll = android.widget.ScrollView(act)
+        scroll.addView(box)
+        val pw = android.widget.PopupWindow(
+            scroll, dp(act, 190), ViewGroup.LayoutParams.WRAP_CONTENT, true
+        )
+        pw.setBackgroundDrawable(
+            android.graphics.drawable.GradientDrawable().apply {
+                setColor(com.google.android.material.color.MaterialColors.getColor(
+                    act, com.google.android.material.R.attr.colorSurfaceContainer, 0xFFE6EAF1.toInt()))
+                cornerRadius = dp(act, 22).toFloat()
+            }
+        )
+        pw.elevation = dp(act, 8).toFloat()
+        for ((id, res) in items) {
+            val tv = TextView(act)
+            tv.setText(res)
+            tv.textSize = 14f
+            tv.setTextColor(textColor(act))
+            tv.gravity = android.view.Gravity.CENTER_VERTICAL
+            tv.setBackgroundResource(R.drawable.bg_tab)
+            tv.setPadding(dp(act, 18), dp(act, 11), dp(act, 18), dp(act, 11))
+            tv.setOnClickListener {
+                pw.dismiss()
+                onPick(id)
+            }
+            val lp = android.widget.LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            lp.setMargins(0, dp(act, 2), 0, dp(act, 2))
+            box.addView(tv, lp)
+        }
+        val maxH = (act.resources.displayMetrics.heightPixels * 0.8f).toInt()
+        scroll.measure(
+            View.MeasureSpec.makeMeasureSpec(dp(act, 190), View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        pw.height = minOf(scroll.measuredHeight, maxH)
+        pw.showAsDropDown(anchor, 0, 0, android.view.Gravity.END)
+    }
+
+    // বর্তমান থিমের টেক্সট রং (থিম পেজ থেকে বাছা)
+    fun textColor(ctx: Context): Int = com.google.android.material.color.MaterialColors.getColor(
+        ctx, R.attr.hmText,
+        androidx.core.content.ContextCompat.getColor(ctx, R.color.text_primary)
+    )
+
     // বর্তমান থিমের অ্যাকসেন্ট রং
     fun accent(ctx: Context): Int = com.google.android.material.color.MaterialColors.getColor(
         ctx, com.google.android.material.R.attr.colorPrimary,

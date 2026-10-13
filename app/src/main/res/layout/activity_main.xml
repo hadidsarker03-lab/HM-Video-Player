@@ -30,7 +30,7 @@
                 android:fontFamily="sans-serif-black"
                 android:gravity="center_vertical"
                 android:text="@string/app_name"
-                android:textColor="@color/text_primary"
+                android:textColor="?attr/hmText"
                 android:textSize="26sp" />
 
             <LinearLayout
@@ -56,8 +56,8 @@
                     android:importantForAutofill="no"
                     android:inputType="text"
                     android:maxLines="1"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_secondary"
+                    android:textColor="?attr/hmText"
+                    android:textColorHint="?attr/hmTextSecondary"
                     android:textSize="15sp" />
             </LinearLayout>
         </FrameLayout>
@@ -71,7 +71,7 @@
             android:contentDescription="@string/search_hint"
             android:padding="10dp"
             android:src="@drawable/ic_search"
-            android:tint="@color/text_primary" />
+            android:tint="?attr/hmText" />
     </LinearLayout>
 
     <LinearLayout
@@ -99,7 +99,7 @@
             android:contentDescription="@string/desc_sort"
             android:padding="10dp"
             android:src="@drawable/ic_sort"
-            android:tint="@color/text_primary" />
+            android:tint="?attr/hmText" />
         <ImageView
             android:id="@+id/btnView"
             android:layout_width="44dp"
@@ -109,7 +109,7 @@
             android:contentDescription="@string/desc_view"
             android:padding="10dp"
             android:src="@drawable/ic_view_list"
-            android:tint="@color/text_primary" />
+            android:tint="?attr/hmText" />
     </LinearLayout>
 
     <FrameLayout
@@ -150,7 +150,7 @@
                 android:layout_height="72dp"
                 android:importantForAccessibility="no"
                 android:src="@drawable/ic_video"
-                android:tint="@color/text_secondary" />
+                android:tint="?attr/hmTextSecondary" />
 
             <TextView
                 android:id="@+id/emptyText"
@@ -158,7 +158,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:gravity="center"
-                android:textColor="@color/text_secondary"
+                android:textColor="?attr/hmTextSecondary"
                 android:textSize="15sp" />
 
             <Button

@@ -40,20 +40,20 @@ object MediaActions {
         act: MediaActivity, anchor: View, v: Video, queue: List<Video>,
         playlistName: String?, onSelect: () -> Unit = {}, onChanged: () -> Unit
     ) {
-        val pm = PopupMenu(act, anchor)
         val fav = Store.isFav(act, v.isAudio, v.id)
-        pm.menu.add(0, 1, 0, R.string.menu_play)
-        pm.menu.add(0, 2, 1, if (fav) R.string.menu_unfav else R.string.menu_fav)
-        pm.menu.add(0, 3, 2, R.string.menu_add_playlist)
-        if (playlistName != null) pm.menu.add(0, 6, 3, R.string.menu_remove_playlist)
-        pm.menu.add(0, 4, 4, R.string.menu_share)
-        pm.menu.add(0, 5, 5, R.string.menu_details)
-        pm.menu.add(0, 7, 6, R.string.menu_rename)
-        pm.menu.add(0, 8, 7, R.string.menu_select)
-        pm.menu.add(0, 10, 8, R.string.menu_hide)
-        pm.menu.add(0, 9, 9, R.string.btn_delete)
-        pm.setOnMenuItemClickListener { item ->
-            when (item.itemId) {
+        val items = ArrayList<Pair<Int, Int>>()
+        items.add(1 to R.string.menu_play)
+        items.add(2 to if (fav) R.string.menu_unfav else R.string.menu_fav)
+        items.add(3 to R.string.menu_add_playlist)
+        if (playlistName != null) items.add(6 to R.string.menu_remove_playlist)
+        items.add(4 to R.string.menu_share)
+        items.add(5 to R.string.menu_details)
+        items.add(7 to R.string.menu_rename)
+        items.add(8 to R.string.menu_select)
+        items.add(10 to R.string.menu_hide)
+        items.add(9 to R.string.btn_delete)
+        UiKit.borderedMenu(act, anchor, items) { id ->
+            when (id) {
                 1 -> play(act, queue, v)
                 2 -> {
                     Store.toggleFav(act, v.isAudio, v.id)
@@ -74,9 +74,7 @@ object MediaActions {
                     }
                 }
             }
-            true
         }
-        pm.show()
     }
 
     fun addToPlaylist(act: AppCompatActivity, v: Video) {

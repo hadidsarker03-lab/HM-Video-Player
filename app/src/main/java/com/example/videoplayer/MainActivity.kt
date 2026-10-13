@@ -95,7 +95,7 @@ class MainActivity : MediaActivity() {
         super.onCreate(savedInstanceState)
         glassAtCreate = AppSettings.glass(this)
         wallAtCreate = Backgrounds.hasWallpaper(this)
-        accentAtCreate = AppSettings.accentIndex(this)
+        accentAtCreate = AppSettings.textIndex(this)
 
         // প্রথমবার চালুর সময় ডিফল্ট ভাষা (ইংলিশ) সেট করা হয়
         val p = AppSettings.prefs(this)
@@ -209,7 +209,7 @@ class MainActivity : MediaActivity() {
         super.onResume()
         if (glassAtCreate != AppSettings.glass(this) ||
             wallAtCreate != Backgrounds.hasWallpaper(this) ||
-            accentAtCreate != AppSettings.accentIndex(this)
+            accentAtCreate != AppSettings.textIndex(this)
         ) {
             recreate()
             return
@@ -335,7 +335,7 @@ class MainActivity : MediaActivity() {
             tv.setPadding(UiKit.dp(this, 3), 0, UiKit.dp(this, 3), 0)
             tv.minWidth = (tv.paint.measureText(getString(res)) * 1.15f).toInt() + UiKit.dp(this, 8)
             tv.setTextColor(
-                if (selected) UiKit.accent(this) else ContextCompat.getColor(this, R.color.text_primary)
+                UiKit.textColor(this)
             )
             cell.addView(tv, LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
@@ -601,13 +601,7 @@ class MainActivity : MediaActivity() {
                 refresh(true)
             },
             MeCell(R.drawable.ic_palette, R.string.settings_theme) { UiKit.chooseTheme(this) },
-            MeCell(R.drawable.ic_language, R.string.settings_language) { UiKit.chooseLanguage(this) },
-            MeCell(R.drawable.ic_view_grid, R.string.settings_layout) {
-                UiKit.chooseLayout(this) {
-                    applyViewMode()
-                    refresh()
-                }
-            }
+            MeCell(R.drawable.ic_language, R.string.settings_language) { UiKit.chooseLanguage(this) }
         )
         cells.chunked(3).forEach { chunk ->
             val row = LinearLayout(this)
@@ -639,7 +633,7 @@ class MainActivity : MediaActivity() {
         tile.setBackgroundResource(R.drawable.bg_tile)
         val icon = ImageView(this)
         icon.setImageResource(c.icon)
-        icon.setColorFilter(ContextCompat.getColor(this, R.color.text_primary))
+        icon.setColorFilter(UiKit.textColor(this))
         tile.addView(icon, FrameLayout.LayoutParams(UiKit.dp(this, 24), UiKit.dp(this, 24), Gravity.CENTER))
         cell.addView(tile, LinearLayout.LayoutParams(UiKit.dp(this, 48), UiKit.dp(this, 48)))
 
@@ -647,7 +641,7 @@ class MainActivity : MediaActivity() {
         label.setText(c.label)
         label.textSize = 13f
         label.gravity = Gravity.CENTER
-        label.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
+        label.setTextColor(UiKit.textColor(this))
         label.setPadding(0, UiKit.dp(this, 8), 0, 0)
         cell.addView(label)
 

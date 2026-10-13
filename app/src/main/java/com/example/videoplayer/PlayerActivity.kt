@@ -610,7 +610,8 @@ class PlayerActivity : AppCompatActivity() {
                 toggleShortcutsExpanded()
                 scheduleAutoHide()
             }
-            shortcutRow.addView(arrow)
+            arrow.translationZ = UiKit.dp(this, 4).toFloat()
+            if (shortcutsExpanded) shortcutRow.addView(arrow, 0) else shortcutRow.addView(arrow)
             shortcutRow.addView(extra)
             Anim.attachTree(shortcutRow)
             arrowView = arrow
@@ -627,6 +628,14 @@ class PlayerActivity : AppCompatActivity() {
         val extra = extraRow ?: return
         val arrow = arrowView ?: return
         shortcutsExpanded = !shortcutsExpanded
+        // খুললে তীর সবার সামনে (বামে), বন্ধ করলে আগের জায়গায়
+        shortcutRow.removeView(arrow)
+        if (shortcutsExpanded) {
+            shortcutRow.addView(arrow, 0)
+            shortcutScroll.scrollTo(0, 0)
+        } else {
+            shortcutRow.addView(arrow, shortcutRow.indexOfChild(extra))
+        }
         arrow.animate().cancel()
         arrow.animate().rotation(if (shortcutsExpanded) 180f else 0f).setDuration(250).start()
         extra.animate().cancel()

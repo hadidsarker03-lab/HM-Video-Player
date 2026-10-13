@@ -13,10 +13,13 @@
         <item name="android:colorBackground">@color/bg</item>
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>
-        <item name="android:navigationBarColor">@color/surface</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:windowLightStatusBar">@bool/light_bars</item>
         <item name="android:windowLightNavigationBar">@bool/light_bars</item>
         <item name="hmBg">@color/bg</item>
+        <item name="hmText">@color/text_primary</item>
+        <item name="hmTextSecondary">@color/text_secondary</item>
         <item name="hmSurface">@color/surface</item>
         <item name="hmSurfaceAlt">@color/surface_alt</item>
         <item name="hmDivider">@color/divider</item>
@@ -75,24 +78,40 @@
         <item name="android:activityCloseExitAnimation">@anim/hm_exit</item>
     </style>
 
-    <style name="Accent_Blue">
-        <item name="colorPrimary">#2D8CFF</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
+    <style name="TextColor_Blue">
+        <item name="hmText">#2D8CFF</item>
+        <item name="hmTextSecondary">#B32D8CFF</item>
+        <item name="colorOnSurface">#2D8CFF</item>
+        <item name="colorOnSecondaryContainer">#2D8CFF</item>
     </style>
-    <style name="Accent_Pink">
-        <item name="colorPrimary">#D946C8</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
+    <style name="TextColor_Pink">
+        <item name="hmText">#D946C8</item>
+        <item name="hmTextSecondary">#B3D946C8</item>
+        <item name="colorOnSurface">#D946C8</item>
+        <item name="colorOnSecondaryContainer">#D946C8</item>
     </style>
-    <style name="Accent_Orange">
-        <item name="colorPrimary">#FF7A3D</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
+    <style name="TextColor_Orange">
+        <item name="hmText">#FF7A3D</item>
+        <item name="hmTextSecondary">#B3FF7A3D</item>
+        <item name="colorOnSurface">#FF7A3D</item>
+        <item name="colorOnSecondaryContainer">#FF7A3D</item>
     </style>
-    <style name="Accent_Purple">
-        <item name="colorPrimary">#8B5CF6</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
+    <style name="TextColor_Purple">
+        <item name="hmText">#8B5CF6</item>
+        <item name="hmTextSecondary">#B38B5CF6</item>
+        <item name="colorOnSurface">#8B5CF6</item>
+        <item name="colorOnSecondaryContainer">#8B5CF6</item>
     </style>
-    <style name="Accent_Red">
-        <item name="colorPrimary">#EF4444</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
+    <style name="TextColor_Red">
+        <item name="hmText">#EF4444</item>
+        <item name="hmTextSecondary">#B3EF4444</item>
+        <item name="colorOnSurface">#EF4444</item>
+        <item name="colorOnSecondaryContainer">#EF4444</item>
+    </style>
+    <style name="TextColor_White">
+        <item name="hmText">#FFFFFF</item>
+        <item name="hmTextSecondary">#B3FFFFFF</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
     </style>
 </resources>

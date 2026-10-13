@@ -59,8 +59,7 @@ class ThemeActivity : AppCompatActivity() {
         }
 
     private fun accentColor(): Int {
-        val i = AppSettings.accentIndex(this)
-        return if (i == 0) ContextCompat.getColor(this, R.color.accent) else AppSettings.accentColors[i]
+        return UiKit.accent(this)
     }
 
     private fun isDarkNow(): Boolean {
@@ -98,38 +97,6 @@ class ThemeActivity : AppCompatActivity() {
         top.addView(title, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(top)
 
-        // প্রিভিউ কার্ড: প্রতিটা একটা লেআউট স্টাইল
-        val styles = intArrayOf(AppSettings.VIEW_LIST, AppSettings.VIEW_GRID, AppSettings.VIEW_COMPACT)
-        val names = intArrayOf(R.string.layout_list, R.string.layout_grid, R.string.layout_compact)
-        val scroll = HorizontalScrollView(this)
-        scroll.isHorizontalScrollBarEnabled = false
-        scroll.overScrollMode = View.OVER_SCROLL_NEVER
-        val cards = LinearLayout(this)
-        cards.orientation = LinearLayout.HORIZONTAL
-        cards.setPadding(dp(20), dp(8), dp(20), dp(8))
-        for (k in styles.indices) {
-            val selected = AppSettings.viewMode(this) == styles[k]
-            val wrap = LinearLayout(this)
-            wrap.orientation = LinearLayout.VERTICAL
-            wrap.gravity = Gravity.CENTER_HORIZONTAL
-            wrap.addView(previewCard(styles[k], dark, accent, selected, fg), LinearLayout.LayoutParams(dp(190), dp(280)))
-            val label = TextView(this)
-            label.setText(names[k])
-            label.setTextColor(if (selected) accent else fg)
-            label.textSize = 14f
-            label.setPadding(0, dp(8), 0, 0)
-            wrap.addView(label)
-            wrap.setOnClickListener {
-                AppSettings.setViewMode(this, styles[k])
-                build()
-            }
-            val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            lp.marginEnd = dp(14)
-            cards.addView(wrap, lp)
-        }
-        scroll.addView(cards)
-        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-
         // ডার্ক / লাইট / সিস্টেম
         val modes = listOf("dark", "light", "system")
         val modeNames = intArrayOf(R.string.mode_dark, R.string.mode_light, R.string.mode_system)
@@ -157,12 +124,6 @@ class ThemeActivity : AppCompatActivity() {
         }
         root.addView(modeRow)
 
-        // ট্রান্সপারেন্ট ইন্টারফেস (আগে সেটিংসে ছিল)
-        UiKit.switchRow(this, root, R.drawable.ic_brightness, getString(R.string.settings_glass),
-            null, AppSettings.glass(this)) { on ->
-            AppSettings.setGlass(this, on)
-            recreate()
-        }
         root.addView(backgroundStrip(accent, fg))
 
         // অ্যাকসেন্ট রঙের বৃত্ত
@@ -172,18 +133,18 @@ class ThemeActivity : AppCompatActivity() {
         colorRow.orientation = LinearLayout.HORIZONTAL
         colorRow.gravity = Gravity.CENTER_VERTICAL
         colorRow.setPadding(dp(20), dp(10), dp(20), dp(24))
-        for (i in AppSettings.accentStyles.indices) {
-            val color = if (i == 0) ContextCompat.getColor(this, R.color.accent) else AppSettings.accentColors[i]
-            val sel = AppSettings.accentIndex(this) == i
+        for (i in AppSettings.textStyles.indices) {
+            val color = if (i == 0) ContextCompat.getColor(this, R.color.text_primary) else AppSettings.textColors[i]
+            val sel = AppSettings.textIndex(this) == i
             val circle = View(this)
             circle.background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(color)
-                if (sel) setStroke(dp(3), fg)
+                setStroke(dp(if (sel) 3 else 1), if (sel) accent else (fg and 0x00FFFFFF) or 0x55000000)
             }
             circle.setOnClickListener {
-                if (AppSettings.accentIndex(this) != i) {
-                    AppSettings.setAccentIndex(this, i)
+                if (AppSettings.textIndex(this) != i) {
+                    AppSettings.setTextIndex(this, i)
                     recreate()
                 }
             }

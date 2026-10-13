@@ -29,7 +29,7 @@ class SelectionBar(
         bar.setPadding(UiKit.dp(act, 6), UiKit.dp(act, 4), UiKit.dp(act, 6), UiKit.dp(act, 4))
 
         bar.addView(button(R.drawable.ic_close, R.string.btn_cancel) { adapter.clearSelection() })
-        count.setTextColor(ContextCompat.getColor(act, R.color.text_primary))
+        count.setTextColor(UiKit.textColor(act))
         count.textSize = 16f
         count.maxLines = 1
         bar.addView(count, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -85,7 +85,7 @@ class SelectionBar(
             layoutParams = LinearLayout.LayoutParams(UiKit.dp(act, 44), UiKit.dp(act, 44))
             setPadding(UiKit.dp(act, 10), UiKit.dp(act, 10), UiKit.dp(act, 10), UiKit.dp(act, 10))
             setImageResource(icon)
-            setColorFilter(ContextCompat.getColor(act, R.color.text_primary))
+            setColorFilter(UiKit.textColor(act))
             setBackgroundResource(tv.resourceId)
             contentDescription = act.getString(desc)
             setOnClickListener { action() }

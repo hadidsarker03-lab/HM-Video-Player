@@ -6,4 +6,6 @@
     <attr name="hmDivider" format="color" />
     <attr name="hmNeuLight" format="color" />
     <attr name="hmNeuDark" format="color" />
+    <attr name="hmText" format="color" />
+    <attr name="hmTextSecondary" format="color" />
 </resources>

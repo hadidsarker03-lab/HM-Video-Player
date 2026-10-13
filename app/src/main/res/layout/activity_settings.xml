@@ -25,7 +25,7 @@
             android:contentDescription="@string/desc_back"
             android:padding="12dp"
             android:src="@drawable/ic_back"
-            android:tint="@color/text_primary" />
+            android:tint="?attr/hmText" />
 
         <TextView
             android:id="@+id/title"
@@ -36,7 +36,7 @@
             android:ellipsize="end"
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
-            android:textColor="@color/text_primary"
+            android:textColor="?attr/hmText"
             android:textSize="20sp" />
     </LinearLayout>
 
