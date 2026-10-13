@@ -281,4 +281,8 @@
     <string name="bg_system">System wallpaper</string>
     <string name="bg_upload">Upload</string>
     <string name="bg_remove_q">Remove this background?</string>
+    <string name="st_planning">Planning</string>
+    <string name="st_watching">Watching</string>
+    <string name="st_completed">Completed</string>
+    <string name="st_dropped">Dropped</string>
 </resources>
