@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- সাধারণ (অপাক) থিম -->
+    <style name="Theme.HMPlayer" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/accent</item>
+        <item name="colorOnPrimary">@color/on_accent</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSecondaryContainer">@color/surface_alt</item>
+        <item name="colorOnSecondaryContainer">@color/text_primary</item>
+        <item name="colorSurfaceContainer">@color/dialog_bg</item>
+        <item name="colorSurfaceContainerHigh">@color/dialog_bg</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/surface</item>
+        <item name="android:windowLightStatusBar">@bool/light_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/light_bars</item>
+        <item name="hmBg">@color/bg</item>
+        <item name="hmSurface">@color/surface</item>
+        <item name="hmSurfaceAlt">@color/surface_alt</item>
+        <item name="hmDivider">@color/divider</item>
+        <item name="android:windowAnimationStyle">@style/HMWindowAnim</item>
+    </style>
+
+    <!-- ট্রান্সপারেন্ট (গ্লাস) থিম: ওয়ালপেপার দেখা যায়, সিস্টেম বার স্বচ্ছ -->
+    <style name="Theme.HMPlayer.Glass">
+        <item name="android:windowShowWallpaper">true</item>
+        <item name="android:windowBackground">@color/glass_window</item>
+        <item name="android:colorBackground">@color/glass_window</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="hmBg">@android:color/transparent</item>
+        <item name="hmSurface">@color/glass_surface</item>
+        <item name="hmSurfaceAlt">@color/glass_surface_alt</item>
+        <item name="hmDivider">@color/glass_divider</item>
+    </style>
+
+    <!-- প্লেয়ার পেজ: কালো ব্যাকগ্রাউন্ড, সিস্টেম বার স্বচ্ছ -->
+    <style name="Theme.HMPlayer.Player">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:colorBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowShowWallpaper">false</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <!-- অ্যাপ চালুর স্ক্রিন (স্প্ল্যাশ) -->
+    <style name="Theme.HMPlayer.Starting">
+        <item name="android:windowBackground">@drawable/bg_splash</item>
+    </style>
+
+
+    <!-- স্ক্রিন খোলা/বন্ধের স্মুথ স্লাইড + ফেড -->
+    <style name="HMWindowAnim" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/hm_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/hm_exit_back</item>
+        <item name="android:activityCloseEnterAnimation">@anim/hm_enter_back</item>
+        <item name="android:activityCloseExitAnimation">@anim/hm_exit</item>
+    </style>
+
+    <style name="Accent_Blue">
+        <item name="colorPrimary">#2D8CFF</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+    </style>
+    <style name="Accent_Pink">
+        <item name="colorPrimary">#D946C8</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+    </style>
+    <style name="Accent_Orange">
+        <item name="colorPrimary">#FF7A3D</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+    </style>
+    <style name="Accent_Purple">
+        <item name="colorPrimary">#8B5CF6</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+    </style>
+    <style name="Accent_Red">
+        <item name="colorPrimary">#EF4444</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+    </style>
+</resources>

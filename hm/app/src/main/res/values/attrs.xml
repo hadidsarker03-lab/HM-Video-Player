@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="hmBg" format="color" />
+    <attr name="hmSurface" format="color" />
+    <attr name="hmSurfaceAlt" format="color" />
+    <attr name="hmDivider" format="color" />
+</resources>

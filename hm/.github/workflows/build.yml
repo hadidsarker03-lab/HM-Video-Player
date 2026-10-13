@@ -1,0 +1,67 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # রিপোজিটরির রুটে কোনো .zip আপলোড করলে সেটা খুলে ঠিক ফোল্ডারে বসিয়ে দেয়
+      - name: Unpack uploaded zip
+        run: |
+          Z=$(ls *.zip 2>/dev/null | head -1 || true)
+          if [ -n "$Z" ]; then
+            unzip -o -q "$Z" -x ".github/*"
+            rm -f "$Z"
+          fi
+
+      # রুটে কোনো .png থাকলে সেটা থেকে অ্যাপ আইকন বানায়
+      - name: Create app icon from PNG in repo root
+        run: |
+          SRC=$(ls *.png 2>/dev/null | head -1 || true)
+          if [ -n "$SRC" ]; then
+            sudo apt-get install -y imagemagick > /dev/null
+            R=app/src/main/res
+            for pair in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+              d=${pair%%:*}
+              s=${pair##*:}
+              mkdir -p $R/mipmap-$d
+              convert "$SRC" -resize ${s}x${s} $R/mipmap-$d/ic_launcher.png
+            done
+            rm -f "$SRC"
+          fi
+
+      - name: Save files to repo
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Update project files"
+            git push
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Build debug APK
+        run: gradle assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HM-player-APK
+          path: app/build/outputs/apk/debug/app-debug.apk

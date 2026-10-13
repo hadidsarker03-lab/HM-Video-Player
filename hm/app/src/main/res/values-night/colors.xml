@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#0D0D0E</color>
+    <color name="surface">#1A1B1E</color>
+    <color name="surface_alt">#26272B</color>
+    <color name="text_primary">#F4F4F5</color>
+    <color name="text_secondary">#9A9CA3</color>
+    <color name="divider">#232428</color>
+    <color name="accent">#2BD67B</color>
+    <color name="on_accent">#05200F</color>
+    <color name="glass_window">#CC0D0D0E</color>
+    <color name="glass_surface">#1FFFFFFF</color>
+    <color name="glass_surface_alt">#2EFFFFFF</color>
+    <color name="glass_divider">#1FFFFFFF</color>
+    <color name="dialog_bg">#1E1F23</color>
+    <color name="nav_glass_top">#47FFFFFF</color>
+    <color name="nav_glass_bottom">#1FFFFFFF</color>
+    <color name="nav_glass_gloss">#33FFFFFF</color>
+    <color name="nav_glass_stroke">#59FFFFFF</color>
+    <color name="nav_indicator">#332BD67B</color>
+    <color name="nav_glow">#552BD67B</color>
+</resources>
