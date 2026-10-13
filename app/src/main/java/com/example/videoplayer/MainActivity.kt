@@ -182,7 +182,7 @@ class MainActivity : MediaActivity() {
         nav.selectedItemId = navIdFor(tab)
         nav.setOnItemSelectedListener { item ->
             if (item.itemId == R.id.nav_tv) {
-                startActivity(Intent(this, LiveTvActivity::class.java))
+                startActivity(Intent(this, DiscoverActivity::class.java))
                 return@setOnItemSelectedListener false
             }
             val newTab = when (item.itemId) {
