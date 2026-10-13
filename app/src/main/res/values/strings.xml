@@ -280,6 +280,8 @@
     <string name="theme_background">Background</string>
     <string name="bg_system">System wallpaper</string>
     <string name="bg_upload">Upload</string>
+    <string name="bg_default">Default</string>
+    <string name="theme_blur">Background blur</string>
     <string name="bg_remove_q">Remove this background?</string>
     <string name="st_planning">Planning</string>
     <string name="st_watching">Watching</string>

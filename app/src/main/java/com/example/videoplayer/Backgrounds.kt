@@ -23,7 +23,6 @@ object Backgrounds {
     private const val DIR = "backgrounds"
 
     private var cacheKey: String? = null
-    private var cacheDark = false
     private var cacheBmp: Bitmap? = null
 
     fun assetKeys(ctx: Context): List<String> =
@@ -39,24 +38,63 @@ object Backgrounds {
         AppSettings.prefs(ctx).edit().putString("bg_sel", key).apply()
     }
 
-    // ছবি পড়ে (বড় হলে ছোট করে)
-    fun decode(ctx: Context, key: String, maxSide: Int): Bitmap? {
-        return try {
-            fun open() = if (key.startsWith("asset:")) {
-                ctx.assets.open("$DIR/${key.removePrefix("asset:")}")
-            } else {
-                File(File(ctx.filesDir, DIR), key.removePrefix("file:")).inputStream()
+    // ব্যাকগ্রাউন্ড ব্লার: 0..100 (০ = ঝাপসা নয়)
+    fun blur(ctx: Context): Int = AppSettings.prefs(ctx).getInt("bg_blur", 0).coerceIn(0, 100)
+
+    fun setBlur(ctx: Context, v: Int) {
+        AppSettings.prefs(ctx).edit().putInt("bg_blur", v.coerceIn(0, 100)).apply()
+    }
+
+    // সাধারণ (নন-ট্রান্সপারেন্ট) মোডেও ছবি ব্যাকগ্রাউন্ড হিসেবে বসানো আছে কি
+    fun hasWallpaper(ctx: Context): Boolean = selected(ctx) != NONE
+
+    // ছোট করা ছবিকে স্ট্যাক-ব্লার দিয়ে ঝাপসা করে (সব অ্যান্ড্রয়েড ভার্সনে চলে)
+    private fun blurred(src: Bitmap, level: Int): Bitmap {
+        if (level <= 0) return src
+        val scale = 360f / max(src.width, src.height)
+        val w = max(8, (src.width * scale).toInt())
+        val h = max(8, (src.height * scale).toInt())
+        val small = Bitmap.createScaledBitmap(src, w, h, true).copy(Bitmap.Config.ARGB_8888, true)
+        val radius = max(1, (level * 0.24f).toInt())
+        stackBlur(small, radius)
+        return small
+    }
+
+    // বক্স ব্লার (৩ বার = গাউসিয়ানের কাছাকাছি), রানিং-সাম দিয়ে দ্রুত
+    private fun stackBlur(bmp: Bitmap, radius: Int) {
+        val w = bmp.width
+        val h = bmp.height
+        val pix = IntArray(w * h)
+        bmp.getPixels(pix, 0, w, 0, 0, w, h)
+        val tmp = IntArray(w * h)
+        repeat(3) {
+            boxPass(pix, tmp, w, h, radius, true)
+            boxPass(tmp, pix, w, h, radius, false)
+        }
+        bmp.setPixels(pix, 0, w, 0, 0, w, h)
+    }
+
+    private fun boxPass(src: IntArray, dst: IntArray, w: Int, h: Int, rad: Int, horiz: Boolean) {
+        val len = if (horiz) w else h
+        val lines = if (horiz) h else w
+        val step = if (horiz) 1 else w
+        val win = 2 * rad + 1
+        for (l in 0 until lines) {
+            val base = if (horiz) l * w else l
+            var ra = 0; var ga = 0; var ba = 0
+            for (i in -rad..rad) {
+                val p = src[base + i.coerceIn(0, len - 1) * step]
+                ra += (p shr 16) and 0xff; ga += (p shr 8) and 0xff; ba += p and 0xff
             }
-            val o = BitmapFactory.Options()
-            o.inJustDecodeBounds = true
-            open().use { BitmapFactory.decodeStream(it, null, o) }
-            var s = 1
-            while (max(o.outWidth, o.outHeight) / s > maxSide) s *= 2
-            val o2 = BitmapFactory.Options()
-            o2.inSampleSize = s
-            open().use { BitmapFactory.decodeStream(it, null, o2) }
-        } catch (e: Exception) {
-            null
+            for (i in 0 until len) {
+                dst[base + i * step] =
+                    (0xff shl 24) or ((ra / win) shl 16) or ((ga / win) shl 8) or (ba / win)
+                val add = src[base + (i + rad + 1).coerceAtMost(len - 1) * step]
+                val rem = src[base + (i - rad).coerceAtLeast(0) * step]
+                ra += ((add shr 16) and 0xff) - ((rem shr 16) and 0xff)
+                ga += ((add shr 8) and 0xff) - ((rem shr 8) and 0xff)
+                ba += (add and 0xff) - (rem and 0xff)
+            }
         }
     }
 
@@ -89,20 +127,13 @@ object Backgrounds {
             File(File(ctx.filesDir, DIR), key.removePrefix("file:")).delete()
         } catch (e: Exception) { }
         if (selected(ctx) == key) select(ctx, NONE)
-        if (cacheKey == key) {
-            cacheKey = null
-            cacheBmp = null
-        }
+        cacheKey = null
+        cacheBmp = null
     }
 
-    private fun isDark(ctx: Context): Boolean =
-        (ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-            Configuration.UI_MODE_NIGHT_YES
-
-    // স্ক্রিনের উইন্ডো ব্যাকগ্রাউন্ড বসায় (শুধু ট্রান্সপারেন্ট থিমে, প্লেয়ার বাদে)
+    // স্ক্রিনের উইন্ডো ব্যাকগ্রাউন্ড বসায় (সাধারণ ও ট্রান্সপারেন্ট দুই মোডেই, প্লেয়ার বাদে)
     fun apply(act: Activity) {
         if (act is PlayerActivity) return
-        if (!AppSettings.glass(act)) return
         val key = selected(act)
         if (key == NONE) {
             // সিস্টেম ওয়ালপেপার: থিমের নিজের ব্যাকগ্রাউন্ডে ফিরে যায়
@@ -116,23 +147,22 @@ object Backgrounds {
             }
             return
         }
-        val dark = isDark(act)
-        var bmp = if (cacheKey == key) cacheBmp else null
+        val level = blur(act)
+        val ck = "$key|$level"
+        var bmp = if (cacheKey == ck) cacheBmp else null
         if (bmp == null) {
-            bmp = decode(act, key, 1800)
-            cacheKey = key
+            val raw = decode(act, key, 1800)
+            bmp = if (raw != null) blurred(raw, level) else null
+            cacheKey = ck
             cacheBmp = bmp
         }
-        cacheDark = dark
         if (bmp == null) return
-        val scrim = if (dark) 0x88000000.toInt() else 0x66FFFFFF
-        act.window.setBackgroundDrawable(CropDrawable(bmp, scrim))
+        act.window.setBackgroundDrawable(CropDrawable(bmp))
     }
 
-    // ছবিকে স্ক্রিন ভরে (center-crop) আঁকে, ওপরে হালকা স্তর দেয় যাতে লেখা পড়া যায়
-    private class CropDrawable(private val bmp: Bitmap, private val scrim: Int) : Drawable() {
+    // ছবিকে স্ক্রিন ভরে (center-crop) আঁকে — কোনো ঝাপসা/ধূসর স্তর নেই
+    private class CropDrawable(private val bmp: Bitmap) : Drawable() {
         private val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
-        private val scrimPaint = Paint().apply { color = scrim }
 
         override fun draw(c: Canvas) {
             val b = bounds
@@ -146,7 +176,6 @@ object Backgrounds {
             c.scale(s, s)
             c.drawBitmap(bmp, 0f, 0f, paint)
             c.restore()
-            c.drawRect(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(), scrimPaint)
         }
 
         override fun setAlpha(alpha: Int) {

@@ -42,6 +42,13 @@
         <item name="hmNeuDark">@android:color/transparent</item>
     </style>
 
+    <!-- সাধারণ মোডে ওয়ালপেপার বসালে: পেজের সমতল রং স্বচ্ছ, নিচে ছবি দেখা যায় -->
+    <style name="WallpaperOverlay">
+        <item name="hmBg">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
     <!-- প্লেয়ার পেজ: কালো ব্যাকগ্রাউন্ড, সিস্টেম বার স্বচ্ছ -->
     <style name="Theme.HMPlayer.Player">
         <item name="android:windowBackground">@android:color/black</item>

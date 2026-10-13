@@ -72,6 +72,10 @@ object AppSettings {
         act.setTheme(themeRes(act))
         val st = accentStyles[accentIndex(act)]
         if (st != 0) act.theme.applyStyle(st, true)
+        // সাধারণ মোডে ছবি ব্যাকগ্রাউন্ড বাছা থাকলে পেজের সমতল রং স্বচ্ছ করে
+        if (!glass(act) && Backgrounds.hasWallpaper(act) && act !is PlayerActivity) {
+            act.theme.applyStyle(R.style.WallpaperOverlay, true)
+        }
     }
 
     // ব্যাকগ্রাউন্ডে চালানো (ডিফল্ট: চালু)

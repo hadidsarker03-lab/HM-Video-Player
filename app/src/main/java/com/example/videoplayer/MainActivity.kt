@@ -61,6 +61,7 @@ class MainActivity : MediaActivity() {
     private var query = ""
     private var loading = false
     private var glassAtCreate = true
+    private var wallAtCreate = false
     private var accentAtCreate = 0
     private var lmKey = ""
     private var shown: List<Video> = emptyList()
@@ -92,6 +93,7 @@ class MainActivity : MediaActivity() {
         AppSettings.applyTheme(this)
         super.onCreate(savedInstanceState)
         glassAtCreate = AppSettings.glass(this)
+        wallAtCreate = Backgrounds.hasWallpaper(this)
         accentAtCreate = AppSettings.accentIndex(this)
 
         // প্রথমবার চালুর সময় ডিফল্ট ভাষা (ইংলিশ) সেট করা হয়
@@ -205,6 +207,7 @@ class MainActivity : MediaActivity() {
     override fun onResume() {
         super.onResume()
         if (glassAtCreate != AppSettings.glass(this) ||
+            wallAtCreate != Backgrounds.hasWallpaper(this) ||
             accentAtCreate != AppSettings.accentIndex(this)
         ) {
             recreate()

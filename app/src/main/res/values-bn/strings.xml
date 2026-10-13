@@ -280,6 +280,8 @@
     <string name="theme_background">ব্যাকগ্রাউন্ড</string>
     <string name="bg_system">সিস্টেম ওয়ালপেপার</string>
     <string name="bg_upload">আপলোড</string>
+    <string name="bg_default">ডিফল্ট</string>
+    <string name="theme_blur">ব্যাকগ্রাউন্ড ব্লার</string>
     <string name="bg_remove_q">এই ব্যাকগ্রাউন্ড সরাবে?</string>
     <string name="st_planning">দেখার পরিকল্পনা</string>
     <string name="st_watching">দেখছি</string>

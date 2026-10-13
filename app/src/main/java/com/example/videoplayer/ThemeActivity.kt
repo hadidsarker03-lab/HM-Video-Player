@@ -30,8 +30,7 @@ class ThemeActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (key != null && !isDestroyed) {
                         Backgrounds.select(this, key)
-                        Backgrounds.apply(this)
-                        build()
+                        afterBgChange()
                     }
                 }
             }.start()
@@ -45,6 +44,12 @@ class ThemeActivity : AppCompatActivity() {
     }
 
     private fun dp(v: Int) = UiKit.dp(this, v)
+
+    // ব্যাকগ্রাউন্ড বদলালে: সাধারণ মোডে থিম নতুন করে বসে, ট্রান্সপারেন্টে শুধু পেজ আবার আঁকে
+    private fun afterBgChange() {
+        Backgrounds.apply(this)
+        if (AppSettings.glass(this)) build() else recreate()
+    }
 
     private fun round(color: Int, radius: Int, strokeColor: Int = 0, strokeDp: Int = 0): GradientDrawable =
         GradientDrawable().apply {
@@ -158,7 +163,7 @@ class ThemeActivity : AppCompatActivity() {
             AppSettings.setGlass(this, on)
             recreate()
         }
-        if (AppSettings.glass(this)) root.addView(backgroundStrip(accent, fg))
+        root.addView(backgroundStrip(accent, fg))
 
         // অ্যাকসেন্ট রঙের বৃত্ত
         val colorScroll = HorizontalScrollView(this)
@@ -250,11 +255,14 @@ class ThemeActivity : AppCompatActivity() {
 
         fun choose(key: String) {
             Backgrounds.select(this, key)
-            Backgrounds.apply(this)
-            build()
+            afterBgChange()
         }
 
-        tile(Backgrounds.NONE, R.string.bg_system, null, { choose(Backgrounds.NONE) }, null)
+        tile(
+            Backgrounds.NONE,
+            if (AppSettings.glass(this)) R.string.bg_system else R.string.bg_default,
+            null, { choose(Backgrounds.NONE) }, null
+        )
         for (k in Backgrounds.assetKeys(this)) {
             tile(k, 0, Backgrounds.decode(this, k, 220), { choose(k) }, null)
         }
@@ -264,8 +272,7 @@ class ThemeActivity : AppCompatActivity() {
                     .setTitle(R.string.bg_remove_q)
                     .setPositiveButton(R.string.btn_ok) { _, _ ->
                         Backgrounds.removeCustom(this, k)
-                        Backgrounds.apply(this)
-                        build()
+                        afterBgChange()
                     }
                     .setNegativeButton(R.string.btn_cancel, null)
                     .show()
@@ -274,6 +281,37 @@ class ThemeActivity : AppCompatActivity() {
         tile(null, R.string.bg_upload, null, { picker.launch("image/*") }, null)
         scroll.addView(row)
         box.addView(scroll)
+
+        // ব্লার কম/বেশি করার লাইন (স্লাইডার) — ছবি বাছা থাকলে দেখায়
+        if (sel != Backgrounds.NONE) {
+            val label = TextView(this)
+            label.setTextColor(fg)
+            label.textSize = 14f
+            label.setPadding(dp(20), dp(8), dp(20), 0)
+            fun setLabel(v: Int) {
+                label.text = getString(R.string.theme_blur) + ": " + v + "%"
+            }
+            setLabel(Backgrounds.blur(this))
+            box.addView(label)
+            val bar = android.widget.SeekBar(this)
+            bar.max = 100
+            bar.progress = Backgrounds.blur(this)
+            bar.progressTintList = android.content.res.ColorStateList.valueOf(accent)
+            bar.thumbTintList = android.content.res.ColorStateList.valueOf(accent)
+            bar.setPadding(dp(32), dp(8), dp(32), dp(8))
+            bar.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(s: android.widget.SeekBar?, p: Int, fromUser: Boolean) {
+                    setLabel(p)
+                    if (fromUser) {
+                        Backgrounds.setBlur(this@ThemeActivity, p)
+                        Backgrounds.apply(this@ThemeActivity)
+                    }
+                }
+                override fun onStartTrackingTouch(s: android.widget.SeekBar?) {}
+                override fun onStopTrackingTouch(s: android.widget.SeekBar?) {}
+            })
+            box.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
         return box
     }
 
