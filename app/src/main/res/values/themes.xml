@@ -63,4 +63,25 @@
         <item name="android:activityCloseEnterAnimation">@anim/hm_enter_back</item>
         <item name="android:activityCloseExitAnimation">@anim/hm_exit</item>
     </style>
+
+    <style name="Accent_Blue">
+        <item name="colorPrimary">#2D8CFF</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+    </style>
+    <style name="Accent_Pink">
+        <item name="colorPrimary">#D946C8</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+    </style>
+    <style name="Accent_Orange">
+        <item name="colorPrimary">#FF7A3D</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+    </style>
+    <style name="Accent_Purple">
+        <item name="colorPrimary">#8B5CF6</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+    </style>
+    <style name="Accent_Red">
+        <item name="colorPrimary">#EF4444</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+    </style>
 </resources>

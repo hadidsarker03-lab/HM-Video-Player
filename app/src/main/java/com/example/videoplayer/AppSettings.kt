@@ -51,6 +51,29 @@ object AppSettings {
     fun themeRes(c: Context): Int =
         if (glass(c)) R.style.Theme_HMPlayer_Glass else R.style.Theme_HMPlayer
 
+    // অ্যাকসেন্ট রং: 0 = ডিফল্ট, বাকিগুলো ওভারলে স্টাইল
+    val accentStyles = intArrayOf(
+        0, R.style.Accent_Blue, R.style.Accent_Pink,
+        R.style.Accent_Orange, R.style.Accent_Purple, R.style.Accent_Red
+    )
+    val accentColors = intArrayOf(
+        0, 0xFF2D8CFF.toInt(), 0xFFD946C8.toInt(),
+        0xFFFF7A3D.toInt(), 0xFF8B5CF6.toInt(), 0xFFEF4444.toInt()
+    )
+
+    fun accentIndex(c: Context): Int =
+        prefs(c).getInt("accent", 0).coerceIn(0, accentStyles.size - 1)
+
+    fun setAccentIndex(c: Context, i: Int) {
+        prefs(c).edit().putInt("accent", i).apply()
+    }
+
+    fun applyTheme(act: android.app.Activity) {
+        act.setTheme(themeRes(act))
+        val st = accentStyles[accentIndex(act)]
+        if (st != 0) act.theme.applyStyle(st, true)
+    }
+
     // ব্যাকগ্রাউন্ডে চালানো (ডিফল্ট: চালু)
     fun backgroundPlay(c: Context): Boolean = prefs(c).getBoolean("bg_play", true)
 

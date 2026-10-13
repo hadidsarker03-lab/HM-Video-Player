@@ -272,4 +272,15 @@
     <string name="password_mismatch">পাসওয়ার্ড মিলছে না</string>
     <string name="change_password">পাসওয়ার্ড বদলান</string>
     <string name="password_changed">পাসওয়ার্ড বদলানো হয়েছে</string>
+    <string name="tab_live_tv">লাইভ টিভি</string>
+    <string name="playing_now">এখন বাজছে</string>
+    <string name="eq_custom">কাস্টম</string>
+    <string name="eq_reverb">রিভার্ব</string>
+    <string name="eq_enhancer">এনহান্সার</string>
+    <string name="eq_reset_all">রিসেট</string>
+    <string name="tv_loading">সার্ভার লোড হচ্ছে…</string>
+    <string name="tv_empty">এখানে কিছু পাওয়া যায়নি</string>
+    <string name="tv_error">লোড করা যায়নি। ইন্টারনেট দেখে আবার চেষ্টা করো।</string>
+    <string name="tv_retry">আবার চেষ্টা</string>
+    <string name="tv_search">চ্যানেল বা সার্ভার খুঁজুন</string>
 </resources>

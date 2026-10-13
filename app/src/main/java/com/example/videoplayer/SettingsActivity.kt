@@ -14,7 +14,7 @@ class SettingsActivity : AppCompatActivity() {
     private var section: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(AppSettings.themeRes(this))
+        AppSettings.applyTheme(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
         UiKit.applyInsets(this, findViewById(R.id.root), findViewById(R.id.headerRow), true)

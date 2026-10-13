@@ -96,68 +96,9 @@ object PlayerDialogs {
         else "$hz Hz"
 
     fun equalizer(act: AppCompatActivity, onDone: () -> Unit = {}) {
-        if (!AudioFx.eqSupported()) {
-            Toast.makeText(act, R.string.eq_unsupported, Toast.LENGTH_SHORT).show()
-            return
-        }
-        val pad = UiKit.dp(act, 22)
-        val box = LinearLayout(act)
-        box.orientation = LinearLayout.VERTICAL
-        box.setPadding(pad, UiKit.dp(act, 6), pad, 0)
-
-        val sw = MaterialSwitch(act)
-        sw.text = act.getString(R.string.eq_enable)
-        sw.isChecked = AppSettings.eqOn(act)
-        sw.setOnCheckedChangeListener { _, on ->
-            AppSettings.setEqOn(act, on)
-            AudioFx.applyAll(act)
-        }
-        box.addView(sw)
-
-        val presetBtn = Button(act)
-        presetBtn.text = act.getString(R.string.eq_preset)
-        box.addView(presetBtn)
-
-        val bandBox = LinearLayout(act)
-        bandBox.orientation = LinearLayout.VERTICAL
-        box.addView(bandBox)
-
-        fun fill() {
-            bandBox.removeAllViews()
-            val range = AudioFx.bandRange()
-            for (b in AudioFx.bands()) {
-                seekRow(act, bandBox, freqLabel(b.freqHz), range[0], range[1], b.level, true) { v ->
-                    AudioFx.setBand(act, b.index, v)
-                    if (!sw.isChecked) sw.isChecked = true
-                }
-            }
-        }
-        fill()
-
-        presetBtn.setOnClickListener {
-            val names = AudioFx.presets()
-            if (names.isEmpty()) return@setOnClickListener
-            MaterialAlertDialogBuilder(act)
-                .setTitle(R.string.eq_preset)
-                .setItems(names.toTypedArray()) { _, which ->
-                    AudioFx.usePreset(act, which)
-                    if (!sw.isChecked) sw.isChecked = true
-                    fill()
-                }
-                .show()
-        }
-
-        val scroll = ScrollView(act)
-        scroll.addView(box)
-        MaterialAlertDialogBuilder(act)
-            .setTitle(R.string.eq_title)
-            .setView(scroll)
-            .setPositiveButton(R.string.btn_ok, null)
-            .setOnDismissListener { onDone() }
-            .show()
+        EqSheet.show(act, onDone)
     }
 
-    // ---------- অডিও ইফেক্ট ----------
     fun audioEffect(act: AppCompatActivity) {
         val pad = UiKit.dp(act, 22)
         val box = LinearLayout(act)

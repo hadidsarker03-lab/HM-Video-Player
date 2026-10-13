@@ -150,7 +150,7 @@ class VideoAdapter(
             h.thumb.setBackgroundResource(R.drawable.bg_audio_thumb)
             h.thumb.setPadding(pad, pad, pad, pad)
             h.thumb.setImageResource(R.drawable.ic_audio)
-            h.thumb.setColorFilter(ContextCompat.getColor(ctx, R.color.accent))
+            h.thumb.setColorFilter(UiKit.accent(ctx))
         } else {
             h.thumb.clearColorFilter()
             h.thumb.scaleType = ImageView.ScaleType.CENTER_CROP
@@ -160,7 +160,7 @@ class VideoAdapter(
                 .transition(DrawableTransitionOptions.withCrossFade(160)).into(h.thumb)
         }
         val sel = key(v) in selected
-        val accent = ContextCompat.getColor(ctx, R.color.accent)
+        val accent = UiKit.accent(ctx)
         h.itemView.foreground =
             if (sel) android.graphics.drawable.ColorDrawable((accent and 0x00FFFFFF) or 0x55000000)
             else null

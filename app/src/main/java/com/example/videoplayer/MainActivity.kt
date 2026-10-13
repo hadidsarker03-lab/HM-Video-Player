@@ -1,5 +1,6 @@
 package com.example.videoplayer
 
+import android.content.Intent
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -60,6 +61,7 @@ class MainActivity : MediaActivity() {
     private var query = ""
     private var loading = false
     private var glassAtCreate = true
+    private var accentAtCreate = 0
     private var lmKey = ""
     private var shown: List<Video> = emptyList()
     private val executor = Executors.newSingleThreadExecutor()
@@ -87,9 +89,10 @@ class MainActivity : MediaActivity() {
     private class MeCell(val icon: Int, val label: Int, val action: () -> Unit)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(AppSettings.themeRes(this))
+        AppSettings.applyTheme(this)
         super.onCreate(savedInstanceState)
         glassAtCreate = AppSettings.glass(this)
+        accentAtCreate = AppSettings.accentIndex(this)
 
         // প্রথমবার চালুর সময় ডিফল্ট ভাষা (ইংলিশ) সেট করা হয়
         val p = AppSettings.prefs(this)
@@ -175,6 +178,10 @@ class MainActivity : MediaActivity() {
         sub = savedInstanceState?.getInt(KEY_SUB, SUB_ALL) ?: SUB_ALL
         nav.selectedItemId = navIdFor(tab)
         nav.setOnItemSelectedListener { item ->
+            if (item.itemId == R.id.nav_tv) {
+                startActivity(Intent(this, LiveTvActivity::class.java))
+                return@setOnItemSelectedListener false
+            }
             val newTab = when (item.itemId) {
                 R.id.nav_audio -> TAB_MUSIC
                 R.id.nav_me -> TAB_ME
@@ -201,7 +208,9 @@ class MainActivity : MediaActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (glassAtCreate != AppSettings.glass(this)) {
+        if (glassAtCreate != AppSettings.glass(this) ||
+            accentAtCreate != AppSettings.accentIndex(this)
+        ) {
             recreate()
             return
         }
@@ -325,7 +334,7 @@ class MainActivity : MediaActivity() {
             tv.setPadding(UiKit.dp(this, 3), 0, UiKit.dp(this, 3), 0)
             tv.minWidth = (tv.paint.measureText(getString(res)) * 1.15f).toInt() + UiKit.dp(this, 8)
             tv.setTextColor(
-                ContextCompat.getColor(this, if (selected) R.color.accent else R.color.text_primary)
+                if (selected) UiKit.accent(this) else ContextCompat.getColor(this, R.color.text_primary)
             )
             cell.addView(tv, LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT

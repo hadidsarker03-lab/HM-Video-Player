@@ -29,7 +29,7 @@ class MediaListActivity : MediaActivity() {
     private val executor = Executors.newSingleThreadExecutor()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(AppSettings.themeRes(this))
+        AppSettings.applyTheme(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_media_list)
         UiKit.applyInsets(this, findViewById(R.id.root), findViewById(R.id.headerRow), true)

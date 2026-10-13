@@ -68,6 +68,10 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var feedbackBox: View
     private lateinit var feedbackIcon: ImageView
     private lateinit var audioArt: View
+    private lateinit var audioCover: ImageView
+    private lateinit var audioTitle: TextView
+    private lateinit var audioArtist: TextView
+    private var coverJob = 0
     private lateinit var topBar: View
     private lateinit var bottomPanel: View
     private lateinit var titleView: TextView
@@ -252,6 +256,19 @@ class PlayerActivity : AppCompatActivity() {
         feedbackBox = findViewById(R.id.feedbackBox)
         feedbackIcon = findViewById(R.id.feedbackIcon)
         audioArt = findViewById(R.id.audioArt)
+        audioCover = findViewById(R.id.audioCover)
+        audioTitle = findViewById(R.id.audioTitle)
+        audioArtist = findViewById(R.id.audioArtist)
+        findViewById<View>(R.id.audioBtnTimer).setOnClickListener {
+            PlayerDialogs.sleep(this) { updateShortcutStates() }
+        }
+        findViewById<View>(R.id.audioBtnEq).setOnClickListener {
+            PlayerDialogs.equalizer(this) { updateShortcutStates() }
+        }
+        findViewById<View>(R.id.audioBtnFav).setOnClickListener { toggleFavourite() }
+        findViewById<View>(R.id.audioBtnQueue).setOnClickListener {
+            player?.let { PlayerDialogs.queue(this, it) }
+        }
         topBar = findViewById(R.id.topBar)
         bottomPanel = findViewById(R.id.bottomPanel)
         titleView = findViewById(R.id.videoTitle)
@@ -399,6 +416,12 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun onItemChanged(item: MediaItem?) {
         titleView.text = item?.mediaMetadata?.title ?: ""
+        audioTitle.text = item?.mediaMetadata?.title ?: ""
+        val artist = item?.mediaMetadata?.artist?.toString() ?: ""
+        audioArtist.text = artist
+        audioArtist.visibility = if (artist.isEmpty()) View.GONE else View.VISIBLE
+        loadCover(item?.localConfiguration?.uri)
+        refreshPanel()
         // নতুন ভিডিওতে গেলে A - B রিপিট বন্ধ হয়
         if (abA >= 0) {
             abA = -1L
@@ -1004,8 +1027,47 @@ class PlayerActivity : AppCompatActivity() {
             .withEndAction { morePanel.visibility = View.GONE }.start()
     }
 
+    // অডিওর এমবেডেড কভার আর্ট থাকলে গোল ছবিতে দেখায়
+    private fun loadCover(uri: Uri?) {
+        val my = ++coverJob
+        audioCover.setImageResource(R.drawable.ic_audio)
+        audioCover.scaleType = ImageView.ScaleType.CENTER_INSIDE
+        audioCover.setPadding(UiKit.dp(this, 56), UiKit.dp(this, 56), UiKit.dp(this, 56), UiKit.dp(this, 56))
+        if (uri == null) return
+        Thread {
+            var bmp: Bitmap? = null
+            try {
+                val r = android.media.MediaMetadataRetriever()
+                r.setDataSource(this, uri)
+                val bytes = r.embeddedPicture
+                r.release()
+                if (bytes != null) {
+                    val o = android.graphics.BitmapFactory.Options()
+                    o.inJustDecodeBounds = true
+                    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
+                    var sample = 1
+                    while (o.outWidth / sample > 800) sample *= 2
+                    val o2 = android.graphics.BitmapFactory.Options()
+                    o2.inSampleSize = sample
+                    bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o2)
+                }
+            } catch (e: Exception) { }
+            val result = bmp
+            runOnUiThread {
+                if (my == coverJob && result != null && !isDestroyed) {
+                    audioCover.setPadding(0, 0, 0, 0)
+                    audioCover.scaleType = ImageView.ScaleType.CENTER_CROP
+                    audioCover.setImageBitmap(result)
+                }
+            }
+        }.start()
+    }
+
     private fun refreshPanel() {
         val v = currentVideo()
+        val isFav = v != null && Store.isFav(this, v.isAudio, v.id)
+        findViewById<ImageView>(R.id.audioBtnFav)
+            .setColorFilter(if (isFav) UiKit.accent(this) else android.graphics.Color.WHITE)
         favCell?.findViewById<View>(R.id.scCircle)?.isSelected =
             v != null && Store.isFav(this, v.isAudio, v.id)
     }

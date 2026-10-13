@@ -3,6 +3,7 @@ package com.example.videoplayer
 import android.app.PendingIntent
 import android.content.Intent
 import androidx.media3.common.AudioAttributes
+import androidx.media3.common.AuxEffectInfo
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -23,6 +24,7 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
         current = player
+        AudioFx.auxHook = { id -> player.setAuxEffectInfo(AuxEffectInfo(id, 1f)) }
         // ইকুয়ালাইজার/অডিও ইফেক্ট অডিও সেশনের সাথে যুক্ত হয়
         player.addListener(object : Player.Listener {
             override fun onAudioSessionIdChanged(audioSessionId: Int) {

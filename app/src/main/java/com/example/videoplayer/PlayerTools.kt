@@ -3,6 +3,7 @@ package com.example.videoplayer
 import android.content.Context
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
+import android.media.audiofx.PresetReverb
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
 import android.os.Handler
@@ -37,6 +38,9 @@ object AudioFx {
     private var bass: BassBoost? = null
     private var virt: Virtualizer? = null
     private var loud: LoudnessEnhancer? = null
+    private var reverb: PresetReverb? = null
+    // সার্ভিস এই হুক দিয়ে প্লেয়ারে রিভার্ব (aux effect) যুক্ত করে
+    var auxHook: ((Int) -> Unit)? = null
     private var session = C.AUDIO_SESSION_ID_UNSET
 
     fun attach(ctx: Context, sessionId: Int) {
@@ -48,6 +52,10 @@ object AudioFx {
         bass = try { BassBoost(0, sessionId) } catch (e: Exception) { null }
         virt = try { Virtualizer(0, sessionId) } catch (e: Exception) { null }
         loud = try { LoudnessEnhancer(sessionId) } catch (e: Exception) { null }
+        reverb = try { PresetReverb(0, 0) } catch (e: Exception) { null }
+        reverb?.let { r ->
+            try { auxHook?.invoke(r.id) } catch (e: Exception) { }
+        }
         applyAll(ctx)
     }
 
@@ -56,10 +64,12 @@ object AudioFx {
         try { bass?.release() } catch (e: Exception) { }
         try { virt?.release() } catch (e: Exception) { }
         try { loud?.release() } catch (e: Exception) { }
+        try { reverb?.release() } catch (e: Exception) { }
         eq = null
         bass = null
         virt = null
         loud = null
+        reverb = null
         session = C.AUDIO_SESSION_ID_UNSET
     }
 
@@ -67,6 +77,15 @@ object AudioFx {
     fun bassSupported() = bass?.strengthSupported == true
     fun virtSupported() = virt?.strengthSupported == true
     fun loudSupported() = loud != null
+    fun reverbSupported() = reverb != null
+    fun reverbNames() = listOf(
+        "None", "Small Room", "Medium Room", "Large Room", "Medium Hall", "Large Hall", "Plate"
+    )
+
+    fun setReverb(ctx: Context, index: Int) {
+        AppSettings.setFx(ctx, "reverb", index)
+        applyAll(ctx)
+    }
 
     fun applyAll(ctx: Context) {
         val e = eq
@@ -94,6 +113,14 @@ object AudioFx {
                 val v = AppSettings.fx(ctx, "virt")
                 if (vr.strengthSupported) vr.setStrength(v.toShort())
                 vr.enabled = v > 0
+            } catch (ex: Exception) { }
+        }
+        val rv = reverb
+        if (rv != null) {
+            try {
+                val v = AppSettings.fx(ctx, "reverb").coerceIn(0, 6)
+                rv.preset = v.toShort()
+                rv.enabled = v > 0
             } catch (ex: Exception) { }
         }
         val l = loud

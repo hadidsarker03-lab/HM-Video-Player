@@ -400,7 +400,7 @@ class PrivacyActivity : MediaActivity() {
     private var unlocked = false
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
-        setTheme(AppSettings.themeRes(this))
+        AppSettings.applyTheme(this)
         super.onCreate(savedInstanceState)
         // রিসেন্ট অ্যাপ/স্ক্রিনশটে লুকানো ফাইল দেখা যাবে না
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
