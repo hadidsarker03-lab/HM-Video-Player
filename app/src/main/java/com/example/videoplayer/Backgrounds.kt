@@ -33,6 +33,7 @@ object Backgrounds {
 
     // সাদাটে ডিফল্ট ওয়ালপেপার: শুধু লাইট মোডে চলে, ডার্কে কখনো না
     const val WHITE = "asset:bg_00.jpg"
+    private const val DARK_DEFAULT = "asset:bg_01.jpg"
 
     // এখন ডার্ক মোড চলছে কি (থিম সেটিং অনুযায়ী; সিস্টেম হলে ফোনের সেটিং)
     fun isDark(ctx: Context): Boolean = when (AppSettings.themeMode(ctx)) {
@@ -48,8 +49,14 @@ object Backgrounds {
     fun selected(ctx: Context): String {
         val dark = isDark(ctx)
         val v = AppSettings.prefs(ctx).getString(selKey(dark), null)
-        if (dark) return if (v == null || v == WHITE) NONE else v
-        return v ?: if (AppSettings.glass(ctx)) WHITE else NONE
+        val glass = AppSettings.glass(ctx)
+        if (dark) {
+            val d = if (v == null || v == WHITE) NONE else v
+            // ট্রান্সপারেন্টে "ডিফল্ট" ঘর নেই: কিছু না বাছা থাকলে প্রথম ছবি
+            return if (glass && d == NONE) DARK_DEFAULT else d
+        }
+        val l = v ?: NONE
+        return if (glass && l == NONE) WHITE else if (v == null && !glass) NONE else l
     }
 
     fun select(ctx: Context, key: String) {

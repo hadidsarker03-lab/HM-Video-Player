@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupMenu
@@ -633,11 +634,14 @@ class MainActivity : MediaActivity() {
         cell.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         cell.setBackgroundResource(UiKit.ripple(this))
 
+        // আইকনের চারপাশে Neumorphism বর্ডার
+        val tile = FrameLayout(this)
+        tile.setBackgroundResource(R.drawable.bg_tile)
         val icon = ImageView(this)
         icon.setImageResource(c.icon)
         icon.setColorFilter(ContextCompat.getColor(this, R.color.text_primary))
-        icon.layoutParams = LinearLayout.LayoutParams(UiKit.dp(this, 28), UiKit.dp(this, 28))
-        cell.addView(icon)
+        tile.addView(icon, FrameLayout.LayoutParams(UiKit.dp(this, 24), UiKit.dp(this, 24), Gravity.CENTER))
+        cell.addView(tile, LinearLayout.LayoutParams(UiKit.dp(this, 48), UiKit.dp(this, 48)))
 
         val label = TextView(this)
         label.setText(c.label)

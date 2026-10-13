@@ -259,11 +259,10 @@ class ThemeActivity : AppCompatActivity() {
             afterBgChange()
         }
 
-        tile(
-            Backgrounds.NONE,
-            if (AppSettings.glass(this)) R.string.bg_system else R.string.bg_default,
-            null, { choose(Backgrounds.NONE) }, null
-        )
+        // ট্রান্সপারেন্ট মোডে "ডিফল্ট/সিস্টেম" ঘর নেই
+        if (!AppSettings.glass(this)) {
+            tile(Backgrounds.NONE, R.string.bg_default, null, { choose(Backgrounds.NONE) }, null)
+        }
         for (k in Backgrounds.assetKeys(this)) {
             // ডার্ক মোডে সাদাটে ওয়ালপেপার দেখানো/বাছা যাবে না
             if (dark && k == Backgrounds.WHITE) continue

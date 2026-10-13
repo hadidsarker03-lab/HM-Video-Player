@@ -5,10 +5,10 @@
     android:exitFadeDuration="280">
     <item android:state_checked="true">
         <inset
-            android:insetLeft="12dp"
-            android:insetTop="8dp"
-            android:insetRight="12dp"
-            android:insetBottom="8dp">
+            android:insetLeft="24dp"
+            android:insetTop="12dp"
+            android:insetRight="24dp"
+            android:insetBottom="12dp">
             <layer-list>
                 <item android:drawable="@drawable/bg_tab_on" />
                 <item android:left="6dp" android:top="6dp" android:right="6dp" android:bottom="6dp">
@@ -28,10 +28,10 @@
     </item>
     <item>
         <inset
-            android:insetLeft="12dp"
-            android:insetTop="8dp"
-            android:insetRight="12dp"
-            android:insetBottom="8dp"
+            android:insetLeft="24dp"
+            android:insetTop="12dp"
+            android:insetRight="24dp"
+            android:insetBottom="12dp"
             android:drawable="@drawable/bg_tab" />
     </item>
 </selector>
