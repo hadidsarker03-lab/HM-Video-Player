@@ -98,6 +98,27 @@ object Backgrounds {
         }
     }
 
+    // ছবি পড়ে (বড় হলে ছোট করে)
+    fun decode(ctx: Context, key: String, maxSide: Int): Bitmap? {
+        return try {
+            fun open() = if (key.startsWith("asset:")) {
+                ctx.assets.open("$DIR/${key.removePrefix("asset:")}")
+            } else {
+                File(File(ctx.filesDir, DIR), key.removePrefix("file:")).inputStream()
+            }
+            val o = BitmapFactory.Options()
+            o.inJustDecodeBounds = true
+            open().use { BitmapFactory.decodeStream(it, null, o) }
+            var s = 1
+            while (max(o.outWidth, o.outHeight) / s > maxSide) s *= 2
+            val o2 = BitmapFactory.Options()
+            o2.inSampleSize = s
+            open().use { BitmapFactory.decodeStream(it, null, o2) }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     // গ্যালারি থেকে ছবি যোগ করে, সেভ করে। সফল হলে কী ফেরত দেয়।
     fun addCustom(ctx: Context, uri: Uri): String? {
         return try {
