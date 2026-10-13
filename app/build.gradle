@@ -44,3 +44,20 @@ dependencies {
     implementation "com.google.guava:guava:32.1.3-android"
     implementation "com.github.bumptech.glide:glide:4.16.0"
 }
+
+// আগের আপলোডের যে পুরনো .kt ফাইল রিপোজিটরিতে রয়ে গেছে (kept-sources.txt-এ নেই),
+// বিল্ডের আগে সেগুলো সরিয়ে দেয়, যাতে পুরনো ফিচারের ফাইল বিল্ড না ভাঙে।
+tasks.register("removeStaleSources") {
+    doLast {
+        def listFile = file("kept-sources.txt")
+        if (!listFile.exists()) return
+        def keep = listFile.readLines().collect { it.trim() }.findAll { it }
+        fileTree("src").matching { include "**/*.kt" }.each { f ->
+            if (!keep.contains(f.name)) {
+                println "Removing stale source: " + f.name
+                f.delete()
+            }
+        }
+    }
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn("removeStaleSources") }
