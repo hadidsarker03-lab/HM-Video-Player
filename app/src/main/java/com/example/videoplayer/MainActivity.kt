@@ -178,10 +178,6 @@ class MainActivity : MediaActivity() {
         sub = savedInstanceState?.getInt(KEY_SUB, SUB_ALL) ?: SUB_ALL
         nav.selectedItemId = navIdFor(tab)
         nav.setOnItemSelectedListener { item ->
-            if (item.itemId == R.id.nav_tv) {
-                startActivity(Intent(this, LiveTvActivity::class.java))
-                return@setOnItemSelectedListener false
-            }
             val newTab = when (item.itemId) {
                 R.id.nav_audio -> TAB_MUSIC
                 R.id.nav_me -> TAB_ME

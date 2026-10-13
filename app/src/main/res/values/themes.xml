@@ -20,6 +20,8 @@
         <item name="hmSurface">@color/surface</item>
         <item name="hmSurfaceAlt">@color/surface_alt</item>
         <item name="hmDivider">@color/divider</item>
+        <item name="hmNeuLight">@color/neu_light</item>
+        <item name="hmNeuDark">@color/neu_dark</item>
         <item name="android:windowAnimationStyle">@style/HMWindowAnim</item>
     </style>
 
@@ -36,6 +38,8 @@
         <item name="hmSurface">@color/glass_surface</item>
         <item name="hmSurfaceAlt">@color/glass_surface_alt</item>
         <item name="hmDivider">@color/glass_divider</item>
+        <item name="hmNeuLight">@android:color/transparent</item>
+        <item name="hmNeuDark">@android:color/transparent</item>
     </style>
 
     <!-- প্লেয়ার পেজ: কালো ব্যাকগ্রাউন্ড, সিস্টেম বার স্বচ্ছ -->

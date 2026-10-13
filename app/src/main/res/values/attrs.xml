@@ -4,4 +4,6 @@
     <attr name="hmSurface" format="color" />
     <attr name="hmSurfaceAlt" format="color" />
     <attr name="hmDivider" format="color" />
+    <attr name="hmNeuLight" format="color" />
+    <attr name="hmNeuDark" format="color" />
 </resources>

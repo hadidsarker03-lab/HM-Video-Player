@@ -19,4 +19,6 @@
     <color name="nav_glass_stroke">#59FFFFFF</color>
     <color name="nav_indicator">#332BD67B</color>
     <color name="nav_glow">#552BD67B</color>
+    <color name="neu_light">#00000000</color>
+    <color name="neu_dark">#00000000</color>
 </resources>

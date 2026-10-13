@@ -21,7 +21,6 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.HMPlayer">
 
         <meta-data android:name="android.max_aspect" android:value="2.4" />
@@ -66,11 +65,6 @@
 
         <activity
             android:name=".ThemeActivity"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
-            android:exported="false" />
-
-        <activity
-            android:name=".LiveTvActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:exported="false" />
 

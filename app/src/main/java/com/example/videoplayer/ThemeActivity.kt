@@ -1,5 +1,6 @@
 package com.example.videoplayer
 
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -8,14 +9,34 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.color.MaterialColors
 
 // থিম পেজ: প্রিভিউ কার্ড (লিস্ট/গ্রিড/কম্প্যাক্ট), ডার্ক/লাইট/সিস্টেম, অ্যাকসেন্ট রং
 class ThemeActivity : AppCompatActivity() {
+
+    // নিজের ছবি আপলোড (গ্যালারি থেকে)
+    private val picker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val app = applicationContext
+            Thread {
+                val key = Backgrounds.addCustom(app, uri)
+                runOnUiThread {
+                    if (key != null && !isDestroyed) {
+                        Backgrounds.select(this, key)
+                        Backgrounds.apply(this)
+                        build()
+                    }
+                }
+            }.start()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AppSettings.applyTheme(this)
@@ -52,7 +73,6 @@ class ThemeActivity : AppCompatActivity() {
 
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
-        root.fitsSystemWindows = true
 
         // উপরের বার
         val top = LinearLayout(this)
@@ -87,7 +107,7 @@ class ThemeActivity : AppCompatActivity() {
             val wrap = LinearLayout(this)
             wrap.orientation = LinearLayout.VERTICAL
             wrap.gravity = Gravity.CENTER_HORIZONTAL
-            wrap.addView(previewCard(styles[k], dark, accent, selected, fg), LinearLayout.LayoutParams(dp(200), dp(300)))
+            wrap.addView(previewCard(styles[k], dark, accent, selected, fg), LinearLayout.LayoutParams(dp(190), dp(280)))
             val label = TextView(this)
             label.setText(names[k])
             label.setTextColor(if (selected) accent else fg)
@@ -103,7 +123,7 @@ class ThemeActivity : AppCompatActivity() {
             cards.addView(wrap, lp)
         }
         scroll.addView(cards)
-        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         // ডার্ক / লাইট / সিস্টেম
         val modes = listOf("dark", "light", "system")
@@ -131,6 +151,14 @@ class ThemeActivity : AppCompatActivity() {
             modeRow.addView(t, lp)
         }
         root.addView(modeRow)
+
+        // ট্রান্সপারেন্ট ইন্টারফেস (আগে সেটিংসে ছিল)
+        UiKit.switchRow(this, root, R.drawable.ic_brightness, getString(R.string.settings_glass),
+            null, AppSettings.glass(this)) { on ->
+            AppSettings.setGlass(this, on)
+            recreate()
+        }
+        if (AppSettings.glass(this)) root.addView(backgroundStrip(accent, fg))
 
         // অ্যাকসেন্ট রঙের বৃত্ত
         val colorScroll = HorizontalScrollView(this)
@@ -161,7 +189,92 @@ class ThemeActivity : AppCompatActivity() {
         colorScroll.addView(colorRow)
         root.addView(colorScroll)
 
-        setContentView(root)
+        val page = ScrollView(this)
+        page.isFillViewport = true
+        page.fitsSystemWindows = true
+        page.addView(root)
+        setContentView(page)
+    }
+
+    // ব্যাকগ্রাউন্ড বাছাই: সিস্টেম ওয়ালপেপার, অ্যাপের ছবি, নিজের আপলোড
+    private fun backgroundStrip(accent: Int, fg: Int): View {
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        val title = TextView(this)
+        title.setText(R.string.theme_background)
+        title.setTextColor(fg)
+        title.textSize = 16f
+        title.setTypeface(title.typeface, android.graphics.Typeface.BOLD)
+        title.setPadding(dp(20), dp(12), dp(20), dp(6))
+        box.addView(title)
+
+        val scroll = HorizontalScrollView(this)
+        scroll.isHorizontalScrollBarEnabled = false
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.setPadding(dp(17), dp(4), dp(17), dp(8))
+        val sel = Backgrounds.selected(this)
+        val faint = (fg and 0x00FFFFFF) or 0x33000000
+
+        fun tile(key: String?, label: Int, bmp: Bitmap?, onClick: () -> Unit, onLong: (() -> Unit)?) {
+            val on = key != null && key == sel
+            val t = FrameLayout(this)
+            t.setPadding(dp(3), dp(3), dp(3), dp(3))
+            t.background = round(Color.TRANSPARENT, 14, if (on) accent else faint, if (on) 3 else 1)
+            if (bmp != null) {
+                val iv = ImageView(this)
+                iv.scaleType = ImageView.ScaleType.CENTER_CROP
+                iv.setImageBitmap(bmp)
+                iv.background = round(Color.DKGRAY, 11)
+                iv.clipToOutline = true
+                t.addView(iv, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            } else {
+                val tv = TextView(this)
+                tv.setText(label)
+                tv.setTextColor(fg)
+                tv.textSize = 11f
+                tv.gravity = Gravity.CENTER
+                t.addView(tv, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            }
+            t.setOnClickListener { onClick() }
+            if (onLong != null) {
+                t.setOnLongClickListener {
+                    onLong()
+                    true
+                }
+            }
+            val lp = LinearLayout.LayoutParams(dp(68), dp(104))
+            lp.marginEnd = dp(10)
+            row.addView(t, lp)
+        }
+
+        fun choose(key: String) {
+            Backgrounds.select(this, key)
+            Backgrounds.apply(this)
+            build()
+        }
+
+        tile(Backgrounds.NONE, R.string.bg_system, null, { choose(Backgrounds.NONE) }, null)
+        for (k in Backgrounds.assetKeys(this)) {
+            tile(k, 0, Backgrounds.decode(this, k, 220), { choose(k) }, null)
+        }
+        for (k in Backgrounds.customKeys(this)) {
+            tile(k, 0, Backgrounds.decode(this, k, 220), { choose(k) }, {
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.bg_remove_q)
+                    .setPositiveButton(R.string.btn_ok) { _, _ ->
+                        Backgrounds.removeCustom(this, k)
+                        Backgrounds.apply(this)
+                        build()
+                    }
+                    .setNegativeButton(R.string.btn_cancel, null)
+                    .show()
+            })
+        }
+        tile(null, R.string.bg_upload, null, { picker.launch("image/*") }, null)
+        scroll.addView(row)
+        box.addView(scroll)
+        return box
     }
 
     // অ্যাপের ছোট নকল স্ক্রিন

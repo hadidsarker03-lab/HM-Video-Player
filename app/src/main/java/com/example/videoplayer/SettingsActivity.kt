@@ -77,11 +77,6 @@ class SettingsActivity : AppCompatActivity() {
             UiKit.themeName(this)) { UiKit.chooseTheme(this) { build() } }
         UiKit.row(this, list, R.drawable.ic_view_grid, getString(R.string.settings_layout),
             UiKit.layoutName(this)) { UiKit.chooseLayout(this) { build() } }
-        UiKit.switchRow(this, list, R.drawable.ic_brightness, getString(R.string.settings_glass),
-            null, AppSettings.glass(this)) { on ->
-            AppSettings.setGlass(this, on)
-            recreate()
-        }
     }
 
     private fun video(list: LinearLayout) {
