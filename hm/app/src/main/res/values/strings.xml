@@ -301,4 +301,12 @@
     <string name="trk_rate">Rate (1–10)</string>
     <string name="trk_score">Your rating: %1$d/10</string>
     <string name="trk_remove">Remove from list</string>
+    <string name="disc_free">▶ Free movies</string>
+    <string name="arc_title">Free movies &amp; shows</string>
+    <string name="arc_movies">Movies</string>
+    <string name="arc_cartoons">Cartoons</string>
+    <string name="arc_tv">Classic TV</string>
+    <string name="arc_search">Search free titles</string>
+    <string name="arc_loading">Loading…</string>
+    <string name="arc_none">No playable video found in this item.</string>
 </resources>

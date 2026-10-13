@@ -301,4 +301,12 @@
     <string name="trk_rate">রেটিং দিন (১–১০)</string>
     <string name="trk_score">আপনার রেটিং: %1$d/১০</string>
     <string name="trk_remove">লিস্ট থেকে সরান</string>
+    <string name="disc_free">▶ ফ্রি মুভি</string>
+    <string name="arc_title">ফ্রি মুভি ও শো</string>
+    <string name="arc_movies">সিনেমা</string>
+    <string name="arc_cartoons">কার্টুন</string>
+    <string name="arc_tv">ক্লাসিক টিভি</string>
+    <string name="arc_search">ফ্রি টাইটেল খুঁজুন</string>
+    <string name="arc_loading">লোড হচ্ছে…</string>
+    <string name="arc_none">এতে চালানোর মতো ভিডিও পাওয়া যায়নি।</string>
 </resources>

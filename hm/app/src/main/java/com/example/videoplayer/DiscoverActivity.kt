@@ -94,6 +94,9 @@ class DiscoverActivity : AppCompatActivity() {
         tabList = tab(getString(R.string.disc_watchlist)) { switchTab(true) }
         tabs.addView(tabBrowse, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         tabs.addView(tabList, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val tabFree = tab(getString(R.string.disc_free)) { startActivity(Intent(this, ArchiveActivity::class.java)) }
+        tabFree.setTextColor(UiKit.accent(this))
+        tabs.addView(tabFree, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(tabs)
 
         search = EditText(this)

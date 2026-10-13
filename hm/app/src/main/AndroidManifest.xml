@@ -75,6 +75,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".ArchiveActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
+            android:exported="false" />
+
+        <activity
             android:name=".AnimeDetailActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:exported="false" />
