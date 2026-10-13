@@ -137,10 +137,7 @@ class MainActivity : MediaActivity() {
                 ) { refresh() }
             }
         )
-        selection = SelectionBar(
-            this, findViewById(R.id.root), mediaAdapter,
-            hideView = findViewById(R.id.nav), handleInset = true
-        ) { refresh() }
+        selection = SelectionBar(this, findViewById(R.id.root), mediaAdapter) { refresh() }
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (selection.active()) {
@@ -182,7 +179,7 @@ class MainActivity : MediaActivity() {
         nav.selectedItemId = navIdFor(tab)
         nav.setOnItemSelectedListener { item ->
             if (item.itemId == R.id.nav_tv) {
-                startActivity(Intent(this, DiscoverActivity::class.java))
+                startActivity(Intent(this, LiveTvActivity::class.java))
                 return@setOnItemSelectedListener false
             }
             val newTab = when (item.itemId) {

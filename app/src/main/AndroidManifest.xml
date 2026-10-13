@@ -70,17 +70,7 @@
             android:exported="false" />
 
         <activity
-            android:name=".DiscoverActivity"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
-            android:exported="false" />
-
-        <activity
-            android:name=".ArchiveActivity"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
-            android:exported="false" />
-
-        <activity
-            android:name=".AnimeDetailActivity"
+            android:name=".LiveTvActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:exported="false" />
 

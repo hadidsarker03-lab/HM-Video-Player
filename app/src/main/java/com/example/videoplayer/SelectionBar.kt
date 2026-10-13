@@ -15,8 +15,6 @@ class SelectionBar(
     root: LinearLayout,
     private val adapter: VideoAdapter,
     private val privateMode: Boolean = false,
-    private val hideView: View? = null,
-    private val handleInset: Boolean = false,
     private val afterChange: () -> Unit
 ) {
     private val bar = LinearLayout(act)
@@ -69,15 +67,7 @@ class SelectionBar(
                 MediaActions.delete(act, adapter.selectedVideos()) { done() }
             })
         }
-        if (handleInset) {
-            val basePad = bar.paddingBottom
-            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(bar) { v, ins ->
-                val b = ins.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).bottom
-                v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, basePad + b)
-                ins
-            }
-        }
-        root.addView(bar, LinearLayout.LayoutParams(
+        root.addView(bar, 1, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ))
         adapter.onSelectionChanged = { update() }
@@ -103,16 +93,7 @@ class SelectionBar(
     }
 
     fun update() {
-        val show = adapter.selecting
-        if (show && bar.visibility != View.VISIBLE) {
-            bar.visibility = View.VISIBLE
-            bar.translationY = UiKit.dp(act, 56).toFloat()
-            bar.animate().translationY(0f).setDuration(220)
-                .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
-        } else if (!show) {
-            bar.visibility = View.GONE
-        }
-        hideView?.visibility = if (show) View.GONE else View.VISIBLE
+        bar.visibility = if (adapter.selecting) View.VISIBLE else View.GONE
         count.text = act.getString(R.string.selected_count, adapter.selected.size)
         btnRename?.visibility = if (adapter.selected.size == 1) View.VISIBLE else View.GONE
     }
