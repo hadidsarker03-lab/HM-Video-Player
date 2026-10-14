@@ -3,7 +3,7 @@
     <!-- Android 12+ সিস্টেম স্প্ল্যাশ: গোল কোণার লোগো -->
     <style name="Theme.HMPlayer.Starting" parent="Theme.HMPlayer">
         <item name="android:windowSplashScreenBackground">@color/bg</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/hm_splash</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
     </style>
 </resources>

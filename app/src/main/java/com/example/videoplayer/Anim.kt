@@ -17,14 +17,28 @@ object Anim {
     fun pressable(v: View, scaleTo: Float = 0.86f) {
         if (v.getTag(R.id.anim_attached) != null) return
         v.setTag(R.id.anim_attached, true)
+        var dx = 0f
+        var dy = 0f
+        var pressed = false
+        val slop = android.view.ViewConfiguration.get(v.context).scaledTouchSlop
+        fun release(view: View) {
+            if (!pressed) return
+            pressed = false
+            view.animate().scaleX(1f).scaleY(1f)
+                .setDuration(220).setInterpolator(DecelerateInterpolator()).start()
+        }
         v.setOnTouchListener { view, e ->
             when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN ->
+                MotionEvent.ACTION_DOWN -> {
+                    dx = e.rawX; dy = e.rawY
+                    pressed = true
                     view.animate().scaleX(scaleTo).scaleY(scaleTo)
                         .setDuration(90).setInterpolator(DecelerateInterpolator()).start()
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
-                    view.animate().scaleX(1f).scaleY(1f)
-                        .setDuration(280).setInterpolator(OvershootInterpolator(2.4f)).start()
+                }
+                // আঙুল সরালে (উপর-নিচ বা পাশে) ছোট হয়ে থাকে না, সাথে সাথে স্বাভাবিক হয়
+                MotionEvent.ACTION_MOVE ->
+                    if (Math.abs(e.rawX - dx) > slop || Math.abs(e.rawY - dy) > slop) release(view)
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> release(view)
             }
             false
         }
@@ -34,7 +48,7 @@ object Anim {
     fun attachTree(v: View) {
         if (v is RecyclerView) return
         if (v is ViewGroup) {
-            if (v.isClickable && v.findViewById<View>(R.id.scCircle) != null) pressable(v, 0.9f)
+            if (v.isClickable && v.findViewById<View>(R.id.scCircle) != null) pressable(v, 0.95f)
             for (i in 0 until v.childCount) attachTree(v.getChildAt(i))
         } else if (v is ImageView && v.isClickable) {
             pressable(v)

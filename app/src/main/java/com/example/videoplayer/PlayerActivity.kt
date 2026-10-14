@@ -184,6 +184,7 @@ class PlayerActivity : AppCompatActivity() {
     private var startPos = 0L
     private var pendingSeek = -1L
     private var volAccum = 0f
+    private var volLevel = 0f
 
     private val playerListener = object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
@@ -1479,7 +1480,7 @@ class PlayerActivity : AppCompatActivity() {
                         else -> Mode.VOLUME
                     }
                     startPos = p.currentPosition
-                    volAccum = 0f
+                    volAccum = -1f
                 }
                 when (mode) {
                     Mode.SEEK -> {
@@ -1492,22 +1493,21 @@ class PlayerActivity : AppCompatActivity() {
                     Mode.BRIGHTNESS -> {
                         val lp = window.attributes
                         val cur = if (lp.screenBrightness < 0) 0.5f else lp.screenBrightness
-                        lp.screenBrightness = (cur + dy / playerView.height).coerceIn(0.02f, 1f)
+                        // পর্দার উচ্চতার ~৮০% টানলে পুরো রেঞ্জ; ছোট টানে ১% করে বদলায়
+                        lp.screenBrightness = (cur + dy / (playerView.height * 0.8f)).coerceIn(0.01f, 1f)
                         window.attributes = lp
                         showLevel(brightPill, lp.screenBrightness, R.drawable.ic_brightness)
                     }
                     Mode.VOLUME -> {
                         val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                        volAccum += dy / playerView.height * max * 1.5f
-                        val steps = volAccum.toInt()
-                        if (steps != 0) {
-                            val v = (audio.getStreamVolume(AudioManager.STREAM_MUSIC) + steps)
-                                .coerceIn(0, max)
-                            audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0)
-                            volAccum -= steps
+                        if (volAccum < 0f) {
+                            // টানের শুরুতে বর্তমান লেভেল (সিস্টেম ধাপ × প্লেয়ার গেইন)
+                            volLevel = audio.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / max * p.volume
+                            volAccum = 0f
                         }
-                        val now = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
-                        showLevel(volumePill, now.toFloat() / max, if (now == 0) R.drawable.ic_volume_off else R.drawable.ic_volume)
+                        volLevel = (volLevel + dy / (playerView.height * 0.8f)).coerceIn(0f, 1f)
+                        applyVolume(volLevel, max)
+                        showLevel(volumePill, volLevel, if (volLevel <= 0f) R.drawable.ic_volume_off else R.drawable.ic_volume)
                     }
                     else -> {}
                 }
@@ -1536,6 +1536,14 @@ class PlayerActivity : AppCompatActivity() {
         handler.postDelayed(hideFeedback, 600)
         handler.removeCallbacks(hideLevels)
         handler.postDelayed(hideLevels, 700)
+    }
+
+    // ১% ধাপে ভলিউম: সিস্টেম ভলিউম ধাপ (উপরের দিকে গোল) × প্লেয়ার গেইন দিয়ে মাঝের মানও পাওয়া যায়
+    private fun applyVolume(level: Float, max: Int) {
+        val exact = level * max
+        val stream = kotlin.math.ceil(exact).toInt().coerceIn(0, max)
+        audio.setStreamVolume(AudioManager.STREAM_MUSIC, stream, 0)
+        player?.volume = if (stream == 0) 1f else (exact / stream).coerceIn(0f, 1f)
     }
 
     private fun showLevel(pill: LevelPill, level: Float, icon: Int) {

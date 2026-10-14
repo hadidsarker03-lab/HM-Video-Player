@@ -21,6 +21,10 @@ class LevelPill @JvmOverloads constructor(
     private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x38FFFFFF }
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() }
     private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x38FFFFFF; strokeWidth = 1.5f * d }
+    private val txt = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFFFFF.toInt(); textAlign = Paint.Align.CENTER
+        textSize = 13f * resources.displayMetrics.scaledDensity; isFakeBoldText = true
+    }
     private val rect = RectF()
     private var icon: Drawable? = null
     private var shown = 0f      // অ্যানিমেটেড মান 0..1
@@ -40,7 +44,7 @@ class LevelPill @JvmOverloads constructor(
         target = v.coerceIn(0f, 1f)
         anim?.cancel()
         anim = ValueAnimator.ofFloat(shown, target).apply {
-            duration = 140
+            duration = 80
             interpolator = DecelerateInterpolator()
             addUpdateListener { shown = it.animatedValue as Float; invalidate() }
             start()
@@ -57,14 +61,14 @@ class LevelPill @JvmOverloads constructor(
             scaleX = 0.9f; scaleY = 0.9f
         }
         animate().alpha(1f).translationX(0f).scaleX(1f).scaleY(1f)
-            .setDuration(220).setInterpolator(DecelerateInterpolator()).withEndAction(null).start()
+            .setDuration(260).setInterpolator(android.view.animation.OvershootInterpolator(0.9f)).withEndAction(null).start()
     }
 
     // পাশে স্লাইড করে বেরিয়ে যায়
     fun slideOut() {
         animate().cancel()
         animate().alpha(0f).translationX((if (fromEnd) 1 else -1) * 36 * d)
-            .setDuration(200).withEndAction { visibility = GONE }.start()
+            .setDuration(240).setInterpolator(DecelerateInterpolator()).withEndAction { visibility = GONE }.start()
     }
 
     override fun onDraw(c: Canvas) {
@@ -74,7 +78,7 @@ class LevelPill @JvmOverloads constructor(
         c.drawRoundRect(rect, w / 2f, w / 2f, bg)
 
         val tw = 6f * d
-        val top = 22f * d
+        val top = 40f * d
         val bottom = h - 66f * d
         val cx = w / 2f
         rect.set(cx - tw / 2, top, cx + tw / 2, bottom)
@@ -82,6 +86,8 @@ class LevelPill @JvmOverloads constructor(
         val fy = bottom - (bottom - top) * shown
         rect.set(cx - tw / 2, fy, cx + tw / 2, bottom)
         c.drawRoundRect(rect, tw / 2, tw / 2, fill)
+
+        c.drawText("${Math.round(shown * 100)}", cx, 26f * d, txt)
 
         val ly = h - 54f * d
         c.drawLine(cx - 14f * d, ly, cx + 14f * d, ly, line)

@@ -61,3 +61,20 @@ tasks.register("removeStaleSources") {
     }
 }
 tasks.matching { it.name == "preBuild" }.configureEach { dependsOn("removeStaleSources") }
+
+// আগের আপলোডের পুরনো স্প্ল্যাশ লোগো (যেগুলো নতুন জিপে নেই) রিপোজিটরি থেকে মুছে দেয়,
+// যাতে পুরনো লোগো আর নতুনটাকে ঢেকে না দেয়।
+tasks.register("removeStaleRes") {
+    doLast {
+        fileTree("src/main/res").matching {
+            include "drawable*/splash_logo.*"
+            include "mipmap-anydpi*/ic_launcher*.xml"
+            include "drawable*/ic_launcher_foreground.*"
+            include "drawable*/ic_launcher_background.*"
+        }.each { f ->
+            println "Removing stale resource: " + f.path
+            f.delete()
+        }
+    }
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn("removeStaleRes") }
