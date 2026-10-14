@@ -22,6 +22,7 @@ enum class Shortcut(val key: String, val icon: Int, val label: Int) {
     SLEEP("sleep", R.drawable.ic_timer, R.string.sc_sleep),
     AB("ab", R.drawable.ic_ab_repeat, R.string.sc_ab),
     AUDIO_FX("audio_fx", R.drawable.ic_audio_fx, R.string.sc_audio_fx),
+    BOOST("boost", R.drawable.ic_booster, R.string.sc_boost),
     EQ("eq", R.drawable.ic_equalizer, R.string.sc_eq),
     SPEED("speed", R.drawable.ic_speed_dummy, R.string.sc_speed),
     SCREENSHOT("screenshot", R.drawable.ic_screenshot, R.string.sc_screenshot),
@@ -126,7 +127,8 @@ object AudioFx {
         val l = loud
         if (l != null) {
             try {
-                val v = AppSettings.fx(ctx, "loud")
+                // সাউন্ড বুস্টার (০–১০০% → সর্বোচ্চ ২০ ডেসিবেল) + লাউডনেস বুস্ট
+                val v = AppSettings.fx(ctx, "loud") + AppSettings.fx(ctx, "boost") * 20
                 l.setTargetGain(v)
                 l.enabled = v > 0
             } catch (ex: Exception) { }

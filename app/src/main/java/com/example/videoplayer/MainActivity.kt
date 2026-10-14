@@ -595,7 +595,10 @@ class MainActivity : MediaActivity() {
                 refresh(true)
             },
             MeCell(R.drawable.ic_palette, R.string.settings_theme) { UiKit.chooseTheme(this) },
-            MeCell(R.drawable.ic_language, R.string.settings_language) { UiKit.chooseLanguage(this) }
+            MeCell(R.drawable.ic_language, R.string.settings_language) { UiKit.chooseLanguage(this) },
+            MeCell(R.drawable.ic_browser, R.string.me_browser) {
+                startActivity(android.content.Intent(this, BrowserActivity::class.java))
+            }
         )
         cells.chunked(3).forEach { chunk ->
             val row = LinearLayout(this)

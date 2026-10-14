@@ -3,6 +3,7 @@ package com.example.videoplayer
 import android.annotation.SuppressLint
 import android.app.PictureInPictureParams
 import android.content.ComponentName
+import android.content.Intent
 import android.content.ContentValues
 import android.content.Context
 import android.content.res.ColorStateList
@@ -376,6 +377,12 @@ class PlayerActivity : AppCompatActivity() {
             return
         }
         player = c
+        // ফিরে এলে ভিডিও ট্র্যাক আবার চালু
+        c.trackSelectionParameters = c.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false).build()
+        // সার্ভিসটা স্টার্টেড রাখি, যাতে স্ক্রিন বন্ধ/অ্যাপ মিনিমাইজেও প্লেব্যাক না থামে
+        try { startService(Intent(this, PlaybackService::class.java)) } catch (e: Exception) { }
+        askBatteryOnce()
         playerView.player = c
         c.addListener(playerListener)
 
@@ -463,6 +470,21 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     // স্ক্রিন ছাড়লে: ব্যাকগ্রাউন্ড প্লে চালু থাকলে গান/ভিডিওর শব্দ চলতে থাকে
+    // ব্যাকগ্রাউন্ড প্লে ধরে রাখতে (বিশেষ করে Xiaomi/MIUI) ব্যাটারি অপ্টিমাইজেশন ছাড় চাওয়া — একবারই
+    @android.annotation.SuppressLint("BatteryLife")
+    private fun askBatteryOnce() {
+        try {
+            val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
+            val prefs = AppSettings.prefs(this)
+            if (pm.isIgnoringBatteryOptimizations(packageName) || prefs.getBoolean("battery_asked", false)) return
+            prefs.edit().putBoolean("battery_asked", true).apply()
+            startActivity(
+                Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    .setData(android.net.Uri.parse("package:$packageName"))
+            )
+        } catch (e: Exception) { }
+    }
+
     private fun releaseController() {
         val c = player
         if (c != null) {
@@ -472,10 +494,14 @@ class PlayerActivity : AppCompatActivity() {
             savedPlayWhenReady = c.playWhenReady
             c.removeListener(playerListener)
             // ব্যাক চাপলে ভিডিও থামে; গান ব্যাকগ্রাউন্ড চালু থাকলে চলতে থাকে
-            val keepPlaying = AppSettings.backgroundPlay(this) && (!isFinishing || isAudio)
+            val keepPlaying = isAudio || (AppSettings.backgroundPlay(this) && !isFinishing)
             if (!keepPlaying) {
                 c.pause()
                 if (isFinishing) c.clearMediaItems()
+            } else {
+                // ব্যাকগ্রাউন্ডে ছবির দরকার নেই: ভিডিও ট্র্যাক বন্ধ করলে শুধু শব্দ নিরবচ্ছিন্ন চলে
+                c.trackSelectionParameters = c.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true).build()
             }
         }
         if (::playerView.isInitialized) playerView.player = null
@@ -719,6 +745,7 @@ class PlayerActivity : AppCompatActivity() {
         mark(Shortcut.SLEEP, SleepTimer.active())
         mark(Shortcut.AB, abA >= 0)
         mark(Shortcut.EQ, AppSettings.eqOn(this))
+        mark(Shortcut.BOOST, AppSettings.fx(this, "boost") > 0)
         mark(Shortcut.BGPLAY, AppSettings.backgroundPlay(this))
         mark(Shortcut.MIRROR, mirrorOn)
         mark(Shortcut.VFLIP, flipOn)
@@ -768,6 +795,7 @@ class PlayerActivity : AppCompatActivity() {
             Shortcut.SLEEP -> PlayerDialogs.sleep(this) { updateShortcutStates() }
             Shortcut.AB -> toggleAB()
             Shortcut.AUDIO_FX -> PlayerDialogs.audioEffect(this)
+            Shortcut.BOOST -> PlayerDialogs.booster(this) { updateShortcutStates() }
             Shortcut.EQ -> PlayerDialogs.equalizer(this) { updateShortcutStates() }
             Shortcut.SPEED -> p?.let { PlayerDialogs.speed(this, it) { updateShortcutStates() } }
             Shortcut.SCREENSHOT -> takeScreenshot()

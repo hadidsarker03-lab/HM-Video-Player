@@ -288,4 +288,14 @@
     <string name="st_watching">দেখছি</string>
     <string name="st_completed">দেখা শেষ</string>
     <string name="st_dropped">বাদ দিয়েছি</string>
+    <string name="me_browser">ব্রাউজার</string>
+    <string name="sc_boost">সাউন্ড বুস্টার</string>
+    <string name="boost_title">সাউন্ড বুস্টার</string>
+    <string name="boost_label">বুস্ট: %1$d%%</string>
+    <string name="boost_warn">বেশি বুস্টে শব্দ ফেটে যেতে পারে</string>
+    <string name="br_hint">সার্চ করুন বা ঠিকানা লিখুন</string>
+    <string name="br_play">চালান</string>
+    <string name="br_download">ডাউনলোড</string>
+    <string name="br_video_found">ভিডিও লিংক পাওয়া গেছে</string>
+    <string name="br_downloading">ডাউনলোড শুরু হয়েছে…</string>
 </resources>

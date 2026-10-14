@@ -126,6 +126,50 @@ object PlayerDialogs {
             .show()
     }
 
+    // ---------- সাউন্ড বুস্টার ----------
+    fun booster(act: AppCompatActivity, onDone: () -> Unit = {}) {
+        val pad = UiKit.dp(act, 22)
+        val box = LinearLayout(act)
+        box.orientation = LinearLayout.VERTICAL
+        box.setPadding(pad, UiKit.dp(act, 12), pad, 0)
+        val label = TextView(act)
+        label.textSize = 15f
+        label.setPadding(0, 0, 0, UiKit.dp(act, 6))
+        val warn = TextView(act)
+        warn.setText(R.string.boost_warn)
+        warn.textSize = 12f
+        warn.alpha = 0.7f
+        warn.setPadding(0, UiKit.dp(act, 8), 0, 0)
+        val bar = SeekBar(act)
+        bar.max = 100
+        bar.progress = AppSettings.fx(act, "boost").coerceIn(0, 100)
+        fun upd(v: Int) {
+            label.text = act.getString(R.string.boost_label, v)
+            warn.visibility = if (v > 60) View.VISIBLE else View.INVISIBLE
+        }
+        upd(bar.progress)
+        bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                upd(progress)
+                if (fromUser) {
+                    AppSettings.setFx(act, "boost", progress)
+                    AudioFx.applyAll(act)
+                }
+            }
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {}
+        })
+        box.addView(label)
+        box.addView(bar)
+        box.addView(warn)
+        MaterialAlertDialogBuilder(act)
+            .setTitle(R.string.boost_title)
+            .setView(box)
+            .setPositiveButton(R.string.btn_ok, null)
+            .setOnDismissListener { onDone() }
+            .show()
+    }
+
     // ---------- অডিও ট্র্যাক / সাবটাইটেল ----------
     fun tracks(act: AppCompatActivity, p: Player, type: Int) {
         class Opt(val label: String, val group: androidx.media3.common.Tracks.Group?, val index: Int)

@@ -288,4 +288,14 @@
     <string name="st_watching">Watching</string>
     <string name="st_completed">Completed</string>
     <string name="st_dropped">Dropped</string>
+    <string name="me_browser">Browser</string>
+    <string name="sc_boost">Sound Booster</string>
+    <string name="boost_title">Sound Booster</string>
+    <string name="boost_label">Boost: %1$d%%</string>
+    <string name="boost_warn">High boost may distort the sound</string>
+    <string name="br_hint">Search or enter address</string>
+    <string name="br_play">Play</string>
+    <string name="br_download">Download</string>
+    <string name="br_video_found">Video link found</string>
+    <string name="br_downloading">Downloading…</string>
 </resources>
