@@ -105,6 +105,10 @@ class MainActivity : MediaActivity() {
         }
 
         setContentView(R.layout.activity_main)
+        if (savedInstanceState == null && !introShown) {
+            introShown = true
+            showIntroVideo()
+        }
         UiKit.applyInsets(this, findViewById(R.id.root), findViewById(R.id.headerRow), false)
 
         titleView = findViewById(R.id.title)
@@ -620,7 +624,52 @@ class MainActivity : MediaActivity() {
         "1.0"
     }
 
+    // অ্যাপ চালুর সময় ইন্ট্রো ভিডিওর প্রথম ২ সেকেন্ড চলে, তারপর হোম স্ক্রিন দেখা যায়
+    private fun showIntroVideo() {
+        val overlay = FrameLayout(this)
+        overlay.setBackgroundColor(0xFF050C28.toInt())
+        overlay.isClickable = true
+        overlay.isFocusable = true
+        val video = android.widget.VideoView(this)
+        overlay.addView(
+            video,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+            )
+        )
+        addContentView(
+            overlay,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        var done = false
+        fun finishIntro() {
+            if (done) return
+            done = true
+            handler.removeCallbacksAndMessages(null)
+            overlay.animate().alpha(0f).setDuration(250).withEndAction {
+                try { video.stopPlayback() } catch (_: Exception) { }
+                (overlay.parent as? ViewGroup)?.removeView(overlay)
+            }.start()
+        }
+
+        video.setOnCompletionListener { finishIntro() }
+        video.setOnErrorListener { _, _, _ -> finishIntro(); true }
+        video.setOnPreparedListener { mp -> mp.isLooping = false }
+        video.setVideoURI(android.net.Uri.parse("android.resource://" + packageName + "/" + R.raw.splash_intro))
+        video.start()
+        // নিরাপত্তা: ভিডিও কোনো কারণে না চললেও সর্বোচ্চ ২.৫ সেকেন্ড পরে অ্যাপে ঢুকবে
+        handler.postDelayed({ finishIntro() }, 2500)
+    }
+
     companion object {
+        private var introShown = false
         private const val TAB_VIDEO = 0
         private const val TAB_MUSIC = 1
         private const val TAB_ME = 2
