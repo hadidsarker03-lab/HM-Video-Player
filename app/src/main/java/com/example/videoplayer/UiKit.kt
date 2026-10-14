@@ -173,6 +173,61 @@ object UiKit {
         pw.showAsDropDown(anchor, 0, 0, android.view.Gravity.END)
     }
 
+
+    // সাজানোর মেনু: প্রতিটা লেখা আলাদা বর্ডার বক্সে + ডানে রেডিও চিহ্ন
+    fun borderedRadioMenu(
+        act: AppCompatActivity, anchor: View, labels: List<Int>, selected: Int, onPick: (Int) -> Unit
+    ) {
+        val w = dp(act, 250)
+        val box = android.widget.LinearLayout(act)
+        box.orientation = android.widget.LinearLayout.VERTICAL
+        box.setPadding(dp(act, 8), dp(act, 8), dp(act, 8), dp(act, 8))
+        val scroll = android.widget.ScrollView(act)
+        scroll.addView(box)
+        val pw = android.widget.PopupWindow(scroll, w, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        pw.setBackgroundDrawable(
+            android.graphics.drawable.GradientDrawable().apply {
+                setColor(com.google.android.material.color.MaterialColors.getColor(
+                    act, com.google.android.material.R.attr.colorSurfaceContainer, 0xFFE6EAF1.toInt()))
+                cornerRadius = dp(act, 22).toFloat()
+                setStroke(dp(act, 2), com.google.android.material.color.MaterialColors.getColor(
+                    act, R.attr.hmDivider, 0x55888888))
+            }
+        )
+        pw.elevation = dp(act, 8).toFloat()
+        labels.forEachIndexed { i, res ->
+            val row = android.widget.LinearLayout(act)
+            row.orientation = android.widget.LinearLayout.HORIZONTAL
+            row.gravity = android.view.Gravity.CENTER_VERTICAL
+            row.setBackgroundResource(R.drawable.bg_tab)
+            row.setPadding(dp(act, 18), dp(act, 12), dp(act, 16), dp(act, 12))
+            val tv = TextView(act)
+            tv.setText(res)
+            tv.textSize = 14f
+            tv.setTextColor(textColor(act))
+            row.addView(tv, android.widget.LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            val dot = View(act)
+            dot.setBackgroundResource(if (i == selected) R.drawable.bg_radio_on else R.drawable.bg_radio_off)
+            row.addView(dot, android.widget.LinearLayout.LayoutParams(dp(act, 24), dp(act, 24)))
+            row.setOnClickListener {
+                pw.dismiss()
+                onPick(i)
+            }
+            val lp = android.widget.LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            lp.setMargins(0, dp(act, 3), 0, dp(act, 3))
+            box.addView(row, lp)
+        }
+        val maxH = (act.resources.displayMetrics.heightPixels * 0.8f).toInt()
+        scroll.measure(
+            View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        pw.height = minOf(scroll.measuredHeight, maxH)
+        pw.showAsDropDown(anchor, 0, 0, android.view.Gravity.END)
+    }
+
     // বর্তমান থিমের টেক্সট রং (থিম পেজ থেকে বাছা)
     fun textColor(ctx: Context): Int = com.google.android.material.color.MaterialColors.getColor(
         ctx, R.attr.hmText,

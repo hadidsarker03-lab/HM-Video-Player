@@ -368,16 +368,10 @@ class MainActivity : MediaActivity() {
             R.string.sort_name_za, R.string.sort_size_big, R.string.sort_size_small,
             R.string.sort_dur_long, R.string.sort_dur_short
         )
-        val pm = PopupMenu(this, btnSort)
-        labels.forEachIndexed { i, res -> pm.menu.add(0, i, i, res) }
-        pm.menu.setGroupCheckable(0, true, true)
-        pm.menu.getItem(AppSettings.sort(this)).isChecked = true
-        pm.setOnMenuItemClickListener { item ->
-            AppSettings.setSort(this, item.itemId)
+        UiKit.borderedRadioMenu(this, btnSort, labels.toList(), AppSettings.sort(this)) { i ->
+            AppSettings.setSort(this, i)
             refresh()
-            true
         }
-        pm.show()
     }
 
     private fun sortList(list: List<Video>): List<Video> = when (AppSettings.sort(this)) {

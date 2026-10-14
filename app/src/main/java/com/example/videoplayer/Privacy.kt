@@ -419,10 +419,8 @@ class PrivacyActivity : MediaActivity() {
             setImageResource(R.drawable.ic_more)
             contentDescription = getString(R.string.change_password)
             setOnClickListener { v ->
-                PopupMenu(this@PrivacyActivity, v).apply {
-                    menu.add(0, 1, 0, R.string.change_password)
-                    setOnMenuItemClickListener { PrivacyUi.change(this@PrivacyActivity); true }
-                    show()
+                UiKit.borderedMenu(this@PrivacyActivity, v, listOf(1 to R.string.change_password)) {
+                    PrivacyUi.change(this@PrivacyActivity)
                 }
             }
         }
@@ -478,20 +476,16 @@ class PrivacyActivity : MediaActivity() {
     }
 
     private fun menu(v: Video, anchor: View) {
-        val pm = PopupMenu(this, anchor)
-        pm.menu.add(0, 1, 0, R.string.menu_play)
-        pm.menu.add(0, 2, 1, R.string.menu_unhide)
-        pm.menu.add(0, 3, 2, R.string.menu_select)
-        pm.menu.add(0, 4, 3, R.string.btn_delete)
-        pm.setOnMenuItemClickListener {
-            when (it.itemId) {
+        UiKit.borderedMenu(
+            this, anchor,
+            listOf(1 to R.string.menu_play, 2 to R.string.menu_unhide, 3 to R.string.menu_select, 4 to R.string.btn_delete)
+        ) { id ->
+            when (id) {
                 1 -> play(v)
                 2 -> PrivacyOps.unhide(this, listOf(v)) { render() }
                 3 -> adapter.startSelection(v)
                 4 -> PrivacyOps.deleteForever(this, listOf(v)) { render() }
             }
-            true
         }
-        pm.show()
     }
 }

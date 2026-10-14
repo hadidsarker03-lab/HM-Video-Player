@@ -30,9 +30,13 @@ class SelectionBar(
 
         bar.addView(button(R.drawable.ic_close, R.string.btn_cancel) { adapter.clearSelection() })
         count.setTextColor(UiKit.textColor(act))
-        count.textSize = 16f
+        count.textSize = 13f
         count.maxLines = 1
-        bar.addView(count, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        count.setBackgroundResource(R.drawable.bg_tab)
+        count.setPadding(UiKit.dp(act, 8), UiKit.dp(act, 5), UiKit.dp(act, 8), UiKit.dp(act, 5))
+        bar.addView(count, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(UiKit.dp(act, 4), 0, UiKit.dp(act, 4), 0)
+        })
 
         bar.addView(button(R.drawable.ic_check, R.string.select_all) { adapter.selectAll() })
         if (privateMode) {
@@ -79,14 +83,14 @@ class SelectionBar(
     }
 
     private fun button(icon: Int, desc: Int, action: () -> Unit): ImageView {
-        val tv = TypedValue()
-        act.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)
         return ImageView(act).apply {
-            layoutParams = LinearLayout.LayoutParams(UiKit.dp(act, 44), UiKit.dp(act, 44))
-            setPadding(UiKit.dp(act, 10), UiKit.dp(act, 10), UiKit.dp(act, 10), UiKit.dp(act, 10))
+            layoutParams = LinearLayout.LayoutParams(UiKit.dp(act, 34), UiKit.dp(act, 34)).apply {
+                setMargins(UiKit.dp(act, 1), 0, UiKit.dp(act, 1), 0)
+            }
+            setPadding(UiKit.dp(act, 8), UiKit.dp(act, 8), UiKit.dp(act, 8), UiKit.dp(act, 8))
             setImageResource(icon)
             setColorFilter(UiKit.textColor(act))
-            setBackgroundResource(tv.resourceId)
+            setBackgroundResource(R.drawable.bg_icon_box)
             contentDescription = act.getString(desc)
             setOnClickListener { action() }
         }

@@ -128,6 +128,12 @@ object AppSettings {
 
     // ---------- প্লেয়ার পেজের নতুন সেটিংস ----------
     // শর্টকাট সারি দেখানো হবে কি না (ডিফল্ট: হ্যাঁ)
+    // ভিডিও ডিকোডার: 0 = HW, 1 = HW+
+    const val HW = 0
+    const val HW_PLUS = 1
+    fun hwMode(c: Context): Int = prefs(c).getInt("hw_mode", HW)
+    fun setHwMode(c: Context, m: Int) = prefs(c).edit().putInt("hw_mode", m).apply()
+
     fun shortcutsOn(c: Context): Boolean = prefs(c).getBoolean("sc_on", true)
 
     fun setShortcutsOn(c: Context, on: Boolean) {

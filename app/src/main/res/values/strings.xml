@@ -195,7 +195,8 @@
     <string name="track_off">Off</string>
     <string name="track_none">No tracks available</string>
     <string name="track_n">Track %d</string>
-    <string name="hw_toast">Hardware decoder in use</string>
+    <string name="hw_toast">HW: hardware decoder</string>
+    <string name="hw_plus_toast">HW+: hardware decoder with software fallback</string>
     <string name="screenshot_saved">Screenshot saved</string>
     <string name="screenshot_fail">Could not take screenshot</string>
     <string name="locked">Screen locked</string>

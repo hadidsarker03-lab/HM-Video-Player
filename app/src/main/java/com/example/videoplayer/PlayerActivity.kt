@@ -83,6 +83,8 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var btnLock: ImageView
     private lateinit var btnUnlock: ImageView
     private lateinit var hwLabel: TextView
+    private lateinit var volumePill: LevelPill
+    private lateinit var brightPill: LevelPill
     private lateinit var seekBar: SeekBar
     private lateinit var posText: TextView
     private lateinit var durText: TextView
@@ -109,6 +111,10 @@ class PlayerActivity : AppCompatActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val hideFeedback = Runnable { feedbackBox.visibility = View.GONE }
+    private val hideLevels = Runnable {
+        if (::volumePill.isInitialized && volumePill.visibility == View.VISIBLE) volumePill.slideOut()
+        if (::brightPill.isInitialized && brightPill.visibility == View.VISIBLE) brightPill.slideOut()
+    }
 
     // কন্ট্রোল প্যানেল
     private var controlsVisible = true
@@ -286,6 +292,10 @@ class PlayerActivity : AppCompatActivity() {
         btnLock = findViewById(R.id.btnLock)
         btnUnlock = findViewById(R.id.btnUnlock)
         hwLabel = findViewById(R.id.hwLabel)
+        volumePill = findViewById(R.id.volumePill)
+        brightPill = findViewById(R.id.brightPill)
+        volumePill.setSide(true)
+        brightPill.setSide(false)
 
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
         playerView.keepScreenOn = true
@@ -554,8 +564,23 @@ class PlayerActivity : AppCompatActivity() {
             player?.let { PlayerDialogs.tracks(this, it, C.TRACK_TYPE_TEXT) }
             scheduleAutoHide()
         }
+        updateHwLabel()
         hwLabel.setOnClickListener {
-            Toast.makeText(this, R.string.hw_toast, Toast.LENGTH_SHORT).show()
+            // HW <-> HW+ বদল; নতুন ডিকোডার নিতে বর্তমান জায়গা থেকে আবার প্রস্তুত করা হয়
+            val next = if (AppSettings.hwMode(this) == AppSettings.HW) AppSettings.HW_PLUS else AppSettings.HW
+            AppSettings.setHwMode(this, next)
+            updateHwLabel()
+            Toast.makeText(
+                this, if (next == AppSettings.HW) R.string.hw_toast else R.string.hw_plus_toast,
+                Toast.LENGTH_SHORT
+            ).show()
+            player?.let { p ->
+                val pos = p.currentPosition
+                p.stop()
+                p.prepare()
+                p.seekTo(pos)
+            }
+            scheduleAutoHide()
         }
         findViewById<View>(R.id.btnMore).setOnClickListener { showPanel() }
     }
@@ -604,7 +629,7 @@ class PlayerActivity : AppCompatActivity() {
         if (extraCount > 0) {
             val arrow = layoutInflater.inflate(R.layout.item_shortcut, shortcutRow, false)
             arrow.findViewById<ImageView>(R.id.scIcon).setImageResource(R.drawable.ic_chevron)
-            arrow.findViewById<TextView>(R.id.scLabel).text = ""
+            arrow.findViewById<TextView>(R.id.scLabel).apply { text = ""; background = null }
             arrow.rotation = if (shortcutsExpanded) 180f else 0f
             arrow.setOnClickListener {
                 toggleShortcutsExpanded()
@@ -624,7 +649,7 @@ class PlayerActivity : AppCompatActivity() {
         updateShortcutStates()
     }
 
-    private fun toggleShortcutsExpanded() {
+    private fun toggleShortcutsExpanded(ms: Long = 320L) {
         val extra = extraRow ?: return
         val arrow = arrowView ?: return
         shortcutsExpanded = !shortcutsExpanded
@@ -648,15 +673,19 @@ class PlayerActivity : AppCompatActivity() {
         extra.visibility = View.VISIBLE
         extra.alpha = if (shortcutsExpanded) 0f else 1f
         android.animation.ValueAnimator.ofInt(from, to).apply {
-            duration = 300
+            duration = ms
             interpolator = DecelerateInterpolator()
             addUpdateListener {
                 lp.width = it.animatedValue as Int
                 extra.layoutParams = lp
-                extra.alpha = if (full == 0) 1f else (lp.width.toFloat() / full)
+                val f = if (full == 0) 1f else (lp.width.toFloat() / full)
+                extra.alpha = f
+                // তীরের পাশ থেকে স্লাইড করে বেরোনোর অনুভূতি
+                extra.translationX = -(1f - f) * UiKit.dp(this@PlayerActivity, 40)
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(a: android.animation.Animator) {
+                    extra.translationX = 0f
                     if (shortcutsExpanded) {
                         lp.width = ViewGroup.LayoutParams.WRAP_CONTENT
                         extra.alpha = 1f
@@ -982,7 +1011,10 @@ class PlayerActivity : AppCompatActivity() {
                 cb.textSize = 14f
                 cb.buttonTintList = ColorStateList.valueOf(0xFF5DB8FF.toInt())
                 cb.isChecked = s.key !in hidden
+                cb.setBackgroundResource(R.drawable.bg_player_label)
+                cb.setPadding(UiKit.dp(this, 4), UiKit.dp(this, 4), UiKit.dp(this, 6), UiKit.dp(this, 4))
                 cb.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    .apply { setMargins(UiKit.dp(this@PlayerActivity, 3), UiKit.dp(this@PlayerActivity, 3), UiKit.dp(this@PlayerActivity, 3), UiKit.dp(this@PlayerActivity, 3)) }
                 cb.setOnCheckedChangeListener { _, on ->
                     if (on) hidden.remove(s.key) else hidden.add(s.key)
                     AppSettings.setHiddenShortcuts(this, hidden)
@@ -1005,7 +1037,11 @@ class PlayerActivity : AppCompatActivity() {
         val row = LinearLayout(this)
         row.orientation = LinearLayout.HORIZONTAL
         row.gravity = android.view.Gravity.CENTER_VERTICAL
-        row.setPadding(UiKit.dp(this, 6), UiKit.dp(this, 14), UiKit.dp(this, 6), UiKit.dp(this, 8))
+        row.setBackgroundResource(R.drawable.bg_player_border)
+        row.setPadding(UiKit.dp(this, 16), UiKit.dp(this, 10), UiKit.dp(this, 12), UiKit.dp(this, 10))
+        row.layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = UiKit.dp(this@PlayerActivity, 10) }
         val tx = TextView(this)
         tx.setText(label)
         tx.setTextColor(0xFFFFFFFF.toInt())
@@ -1259,6 +1295,10 @@ class PlayerActivity : AppCompatActivity() {
         handler.postDelayed(hideFeedback, 800)
     }
 
+    private fun updateHwLabel() {
+        hwLabel.text = if (AppSettings.hwMode(this) == AppSettings.HW_PLUS) "HW+" else "HW"
+    }
+
     private fun updateProgress() {
         val p = player ?: return
         btnPrev.alpha = if (p.hasPreviousMediaItem()) 1f else 0.4f
@@ -1296,6 +1336,8 @@ class PlayerActivity : AppCompatActivity() {
     private fun hideControls() {
         controlsVisible = false
         handler.removeCallbacks(autoHide)
+        // স্ক্রিনে কোনো অপশন না থাকলে শর্টকাট সারি স্লাইড করে তীরে ঢুকে যায়
+        if (shortcutsExpanded) toggleShortcutsExpanded(220L)
         topBar.animate().cancel()
         bottomPanel.animate().cancel()
         topBar.animate().alpha(0f).translationY(-topBar.height * 0.5f)
@@ -1452,7 +1494,7 @@ class PlayerActivity : AppCompatActivity() {
                         val cur = if (lp.screenBrightness < 0) 0.5f else lp.screenBrightness
                         lp.screenBrightness = (cur + dy / playerView.height).coerceIn(0.02f, 1f)
                         window.attributes = lp
-                        show("${(lp.screenBrightness * 100).toInt()}%", R.drawable.ic_brightness)
+                        showLevel(brightPill, lp.screenBrightness, R.drawable.ic_brightness)
                     }
                     Mode.VOLUME -> {
                         val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
@@ -1465,7 +1507,7 @@ class PlayerActivity : AppCompatActivity() {
                             volAccum -= steps
                         }
                         val now = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
-                        show("${now * 100 / max}%", R.drawable.ic_volume)
+                        showLevel(volumePill, now.toFloat() / max, if (now == 0) R.drawable.ic_volume_off else R.drawable.ic_volume)
                     }
                     else -> {}
                 }
@@ -1492,6 +1534,15 @@ class PlayerActivity : AppCompatActivity() {
         pendingSeek = -1L
         handler.removeCallbacks(hideFeedback)
         handler.postDelayed(hideFeedback, 600)
+        handler.removeCallbacks(hideLevels)
+        handler.postDelayed(hideLevels, 700)
+    }
+
+    private fun showLevel(pill: LevelPill, level: Float, icon: Int) {
+        handler.removeCallbacks(hideLevels)
+        pill.setIcon(icon)
+        pill.setLevel(level)
+        if (pill.visibility != View.VISIBLE || pill.alpha < 1f) pill.slideIn()
     }
 
     private fun seekBy(ms: Long) {

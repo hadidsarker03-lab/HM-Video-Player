@@ -195,7 +195,8 @@
     <string name="track_off">বন্ধ</string>
     <string name="track_none">কোনো ট্র্যাক নেই</string>
     <string name="track_n">ট্র্যাক %d</string>
-    <string name="hw_toast">হার্ডওয়্যার ডিকোডার চলছে</string>
+    <string name="hw_toast">HW: হার্ডওয়্যার ডিকোডার</string>
+    <string name="hw_plus_toast">HW+: হার্ডওয়্যার ডিকোডার (প্রয়োজনে সফটওয়্যার ফলব্যাকসহ)</string>
     <string name="screenshot_saved">স্ক্রিনশট সেভ হয়েছে</string>
     <string name="screenshot_fail">স্ক্রিনশট নেওয়া যায়নি</string>
     <string name="locked">স্ক্রিন লক করা হয়েছে</string>

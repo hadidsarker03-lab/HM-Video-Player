@@ -6,19 +6,40 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.AuxEffectInfo
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.mediacodec.MediaCodecInfo
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
+import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
 // ব্যাকগ্রাউন্ড প্লেব্যাক সার্ভিস: প্লেয়ার এখানে থাকে, তাই অ্যাপ মিনিমাইজ বা স্ক্রিন বন্ধ হলেও চলতে থাকে।
 // নোটিফিকেশনে Play/Pause, Previous, Next নিজে থেকে আসে।
+@androidx.annotation.OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
 
     override fun onCreate() {
         super.onCreate()
-        val player = ExoPlayer.Builder(this)
+        // HW: শুধু হার্ডওয়্যার ডিকোডার; HW+: হার্ডওয়্যার আগে, না পারলে সফটওয়্যারে ফলব্যাক
+        val appCtx = applicationContext
+        val selector = MediaCodecSelector { mime, secure, tunneling ->
+            val all: List<MediaCodecInfo> = MediaCodecUtil.getDecoderInfos(mime, secure, tunneling)
+            if (!mime.startsWith("video/")) {
+                all
+            } else {
+                val hw = all.filter { it.hardwareAccelerated && !it.softwareOnly }
+                val sw = all.filter { !(it.hardwareAccelerated && !it.softwareOnly) }
+                if (AppSettings.hwMode(appCtx) == AppSettings.HW_PLUS || hw.isEmpty()) hw + sw else hw
+            }
+        }
+        val renderers = DefaultRenderersFactory(this)
+            .setMediaCodecSelector(selector)
+            .setEnableDecoderFallback(true)
+        val player = ExoPlayer.Builder(this, renderers)
             .setAudioAttributes(AudioAttributes.DEFAULT, true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_LOCAL)
