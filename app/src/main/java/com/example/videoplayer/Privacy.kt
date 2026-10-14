@@ -1,6 +1,10 @@
 package com.example.videoplayer
 
 import android.content.ContentValues
+import android.provider.Settings
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import android.content.Context
 import android.content.Intent
 import android.media.MediaScannerConnection
@@ -40,40 +44,128 @@ object PrivacyStore {
         val width: Int, val height: Int
     )
 
+    // লক ফোল্ডার: ফোনের স্টোরেজে অ্যাপের জন্য আলাদা ফোল্ডার (.nomedia সহ, গ্যালারিতে দেখা যায় না)।
+    // অ্যাপ আনইনস্টল করলেও এখানকার ফাইল ও তালিকা (.index.json) থেকে যায়।
+    const val FOLDER = "HM Player Lock"
+    private const val INDEX = ".index.json"
+    private var cache: List<Item>? = null
+    private var cacheStamp = -1L
+
+    // সব ফাইল অ্যাক্সেসের অনুমতি আছে কি না
+    fun hasAccess(c: Context): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Environment.isExternalStorageManager()
+        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+            ContextCompat.checkSelfPermission(c, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        else true
+
+    @Suppress("DEPRECATION")
     fun dir(c: Context): File {
-        val base = c.getExternalFilesDir(null) ?: c.filesDir
-        val d = File(base, "privacy")
+        val d = File(Environment.getExternalStorageDirectory(), FOLDER)
         d.mkdirs()
         val nm = File(d, ".nomedia")
         if (!nm.exists()) try { nm.createNewFile() } catch (e: Exception) { }
         return d
     }
 
-    fun items(c: Context): List<Item> {
-        val raw = AppSettings.prefs(c).getString(KEY_ITEMS, null) ?: return emptyList()
-        val out = mutableListOf<Item>()
-        try {
-            val arr = JSONArray(raw)
-            for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
-                out += Item(
-                    o.getString("file"), o.optString("title"), o.optString("ext"),
-                    o.optString("mime"), o.optString("rel"), o.optBoolean("audio"),
-                    o.optLong("dur"), o.optLong("size"), o.optInt("w"), o.optInt("h")
-                )
-            }
-        } catch (e: Exception) { }
-        return out
-    }
+    private fun indexFile(c: Context) = File(dir(c), INDEX)
 
-    private fun save(c: Context, list: List<Item>) {
+    private fun readIndex(c: Context): JSONObject? = try {
+        val f = indexFile(c)
+        if (f.exists()) JSONObject(f.readText()) else null
+    } catch (e: Exception) { null }
+
+    private fun writeIndex(c: Context, list: List<Item>, pw: String?, numeric: Boolean) {
         val arr = JSONArray()
         list.forEach {
             arr.put(JSONObject().put("file", it.file).put("title", it.title).put("ext", it.ext)
                 .put("mime", it.mime).put("rel", it.relPath).put("audio", it.audio)
                 .put("dur", it.duration).put("size", it.size).put("w", it.width).put("h", it.height))
         }
-        AppSettings.prefs(c).edit().putString(KEY_ITEMS, arr.toString()).apply()
+        val o = JSONObject().put("items", arr).put("numeric", numeric)
+        if (pw != null) o.put("pw", pw)
+        val f = indexFile(c)
+        val tmp = File(f.parentFile, "$INDEX.tmp")
+        tmp.writeText(o.toString())
+        if (!tmp.renameTo(f)) { f.writeText(o.toString()); tmp.delete() }
+        cache = list
+        cacheStamp = f.lastModified()
+    }
+
+    fun items(c: Context): List<Item> {
+        if (!hasAccess(c)) return emptyList()
+        migrateOld(c)
+        val f = indexFile(c)
+        val stamp = if (f.exists()) f.lastModified() else 0L
+        cache?.let { if (stamp == cacheStamp) return it }
+        val out = mutableListOf<Item>()
+        try {
+            val arr = readIndex(c)?.optJSONArray("items") ?: JSONArray()
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val it = Item(
+                    o.getString("file"), o.optString("title"), o.optString("ext"),
+                    o.optString("mime"), o.optString("rel"), o.optBoolean("audio"),
+                    o.optLong("dur"), o.optLong("size"), o.optInt("w"), o.optInt("h")
+                )
+                if (File(dir(c), it.file).exists()) out += it
+            }
+        } catch (e: Exception) { }
+        cache = out
+        cacheStamp = stamp
+        return out
+    }
+
+    private fun save(c: Context, list: List<Item>) {
+        val old = readIndex(c)
+        val pw = AppSettings.prefs(c).getString(KEY_PW, null) ?: old?.optString("pw", "")?.ifEmpty { null }
+        val num = if (AppSettings.prefs(c).getString(KEY_PW, null) != null) isNumeric(c) else (old?.optBoolean("numeric", false) ?: false)
+        try { writeIndex(c, list, pw, num) } catch (e: Exception) { }
+    }
+
+    // আগের সংস্করণে অ্যাপের ভিতরের ফোল্ডারে রাখা ফাইলগুলো নতুন লক ফোল্ডারে সরানো
+    private fun migrateOld(c: Context) {
+        val raw = AppSettings.prefs(c).getString(KEY_ITEMS, null) ?: return
+        val oldDir = File(c.getExternalFilesDir(null) ?: c.filesDir, "privacy")
+        val moved = mutableListOf<Item>()
+        try {
+            val arr = JSONArray(raw)
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val src = File(oldDir, o.getString("file"))
+                if (!src.exists()) continue
+                val dst = File(dir(c), src.name)
+                src.inputStream().use { inp -> dst.outputStream().use { out -> inp.copyTo(out) } }
+                if (dst.length() == src.length()) {
+                    src.delete()
+                    moved += Item(
+                        o.getString("file"), o.optString("title"), o.optString("ext"),
+                        o.optString("mime"), o.optString("rel"), o.optBoolean("audio"),
+                        o.optLong("dur"), o.optLong("size"), o.optInt("w"), o.optInt("h")
+                    )
+                } else dst.delete()
+            }
+        } catch (e: Exception) { }
+        AppSettings.prefs(c).edit().remove(KEY_ITEMS).apply()
+        if (moved.isNotEmpty()) {
+            cache = null
+            val existing = readIndexItems(c)
+            save(c, existing + moved)
+        }
+    }
+
+    private fun readIndexItems(c: Context): List<Item> {
+        cache = null
+        cacheStamp = -1
+        val arr = readIndex(c)?.optJSONArray("items") ?: return emptyList()
+        return (0 until arr.length()).map {
+            val o = arr.getJSONObject(it)
+            Item(
+                o.getString("file"), o.optString("title"), o.optString("ext"),
+                o.optString("mime"), o.optString("rel"), o.optBoolean("audio"),
+                o.optLong("dur"), o.optLong("size"), o.optInt("w"), o.optInt("h")
+            )
+        }
     }
 
     fun add(c: Context, item: Item) = save(c, items(c) + item)
@@ -93,11 +185,31 @@ object PrivacyStore {
     private fun hash(salt: String, pw: String) = MessageDigest.getInstance("SHA-256")
         .digest((salt + pw).toByteArray()).joinToString("") { "%02x".format(it) }
 
-    fun hasPassword(c: Context) = AppSettings.prefs(c).getString(KEY_PW, null) != null
+    private const val KEY_NUM = "privacy_pw_numeric"
+
+    // নতুন পাসওয়ার্ড শুধু নম্বরের; আগের (অক্ষরের) পাসওয়ার্ড থাকলে সেটা দিতে সাধারণ কিবোর্ড
+    fun isNumeric(c: Context) = AppSettings.prefs(c).getBoolean(KEY_NUM, false)
+
+    fun hasPassword(c: Context): Boolean {
+        val p = AppSettings.prefs(c)
+        if (p.getString(KEY_PW, null) != null) return true
+        // পুনরায় ইনস্টল করলে: লক ফোল্ডারে রাখা পাসওয়ার্ড ফেরত আনা
+        if (hasAccess(c)) {
+            val o = readIndex(c)
+            val saved = o?.optString("pw", "")
+            if (!saved.isNullOrEmpty()) {
+                p.edit().putString(KEY_PW, saved).putBoolean(KEY_NUM, o.optBoolean("numeric", false)).apply()
+                return true
+            }
+        }
+        return false
+    }
 
     fun setPassword(c: Context, pw: String) {
         val salt = UUID.randomUUID().toString()
-        AppSettings.prefs(c).edit().putString(KEY_PW, "$salt:${hash(salt, pw)}").apply()
+        val v = "$salt:${hash(salt, pw)}"
+        AppSettings.prefs(c).edit().putString(KEY_PW, v).putBoolean(KEY_NUM, true).apply()
+        if (hasAccess(c)) try { writeIndex(c, items(c), v, true) } catch (e: Exception) { }
     }
 
     fun check(c: Context, pw: String): Boolean {
@@ -107,12 +219,17 @@ object PrivacyStore {
     }
 }
 
-// পাসওয়ার্ড ডায়ালগ
+// পাসওয়ার্ড ডায়ালগ: শুধু নম্বর + ফিঙ্গারপ্রিন্ট
 object PrivacyUi {
-    private fun field(ctx: Context, hint: Int) = EditText(ctx).apply {
+    private fun field(ctx: Context, hint: Int, numeric: Boolean = true) = EditText(ctx).apply {
         setHint(hint)
-        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        inputType = if (numeric)
+            InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        else InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         setSingleLine()
+        textSize = 20f
+        gravity = android.view.Gravity.CENTER
+        filters = arrayOf(android.text.InputFilter.LengthFilter(12))
     }
 
     private fun box(ctx: Context, vararg f: EditText) = LinearLayout(ctx).apply {
@@ -122,14 +239,38 @@ object PrivacyUi {
         f.forEach { addView(it) }
     }
 
+    fun canFinger(ctx: Context): Boolean = try {
+        BiometricManager.from(ctx).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+            BiometricManager.BIOMETRIC_SUCCESS
+    } catch (e: Exception) { false }
+
+    // ফিঙ্গারপ্রিন্ট প্রম্পট
+    private fun finger(act: MediaActivity, onOk: () -> Unit, onFail: () -> Unit) {
+        val prompt = BiometricPrompt(
+            act, ContextCompat.getMainExecutor(act),
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(r: BiometricPrompt.AuthenticationResult) = onOk()
+                override fun onAuthenticationError(code: Int, msg: CharSequence) = onFail()
+            }
+        )
+        val info = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(act.getString(R.string.privacy))
+            .setSubtitle(act.getString(R.string.use_fingerprint))
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+            .setNegativeButtonText(act.getString(R.string.use_password))
+            .build()
+        prompt.authenticate(info)
+    }
+
     fun enter(act: MediaActivity, onOk: () -> Unit, onCancel: () -> Unit) {
-        val pw = field(act, R.string.enter_password)
+        val pw = field(act, R.string.enter_password, PrivacyStore.isNumeric(act))
         val dlg = MaterialAlertDialogBuilder(act)
             .setTitle(R.string.privacy)
             .setView(box(act, pw))
             .setCancelable(false)
             .setPositiveButton(R.string.btn_ok, null)
             .setNegativeButton(R.string.btn_cancel) { _, _ -> onCancel() }
+            .apply { if (canFinger(act)) setNeutralButton(R.string.use_fingerprint, null) }
             .create()
         dlg.setOnShowListener {
             dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -140,6 +281,11 @@ object PrivacyUi {
                     pw.error = act.getString(R.string.password_wrong)
                 }
             }
+            val doFinger = {
+                finger(act, { dlg.dismiss(); onOk() }, { })
+            }
+            dlg.getButton(AlertDialog.BUTTON_NEUTRAL)?.setOnClickListener { doFinger() }
+            if (canFinger(act)) doFinger() // খুলতেই ফিঙ্গারপ্রিন্ট চায়
         }
         dlg.show()
     }
@@ -181,27 +327,74 @@ object PrivacyUi {
     }
 }
 
-// হাইড / আনহাইড / স্থায়ীভাবে মোছা
+// লক (সরাসরি মুভ) / আনলক (আগের জায়গায় মুভ ফেরত) / স্থায়ীভাবে মোছা
 object PrivacyOps {
 
-    private class Meta(val name: String, val mime: String, val rel: String)
-
-    private fun queryMeta(ctx: Context, uri: Uri): Meta {
-        val proj = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-            arrayOf(MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.MIME_TYPE,
-                MediaStore.MediaColumns.RELATIVE_PATH)
-        else arrayOf(MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.MIME_TYPE)
-        try {
-            ctx.contentResolver.query(uri, proj, null, null, null)?.use { c ->
-                if (c.moveToFirst()) {
-                    return Meta(
-                        c.getString(0) ?: "", c.getString(1) ?: "",
-                        if (proj.size > 2) (c.getString(2) ?: "") else ""
-                    )
+    // সব ফাইল অ্যাক্সেসের অনুমতি না থাকলে বুঝিয়ে সেটিংসে পাঠায়
+    fun ensureAccess(act: MediaActivity, onGranted: () -> Unit, onDenied: () -> Unit = {}) {
+        if (PrivacyStore.hasAccess(act)) { onGranted(); return }
+        MaterialAlertDialogBuilder(act)
+            .setTitle(R.string.privacy)
+            .setMessage(R.string.access_needed)
+            .setCancelable(false)
+            .setPositiveButton(R.string.btn_ok) { _, _ ->
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        act.startActivity(
+                            Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                                .setData(Uri.parse("package:" + act.packageName))
+                        )
+                    } else {
+                        androidx.core.app.ActivityCompat.requestPermissions(
+                            act, arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 77
+                        )
+                    }
+                } catch (e: Exception) {
+                    act.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
                 }
+                onDenied()
+            }
+            .setNegativeButton(R.string.btn_cancel) { _, _ -> onDenied() }
+            .show()
+    }
+
+    private fun realPath(ctx: Context, uri: Uri): String? {
+        if (uri.scheme == "file") return uri.path
+        @Suppress("DEPRECATION")
+        try {
+            ctx.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)?.use { c ->
+                if (c.moveToFirst()) return c.getString(0)
             }
         } catch (e: Exception) { }
-        return Meta("", "", "")
+        return null
+    }
+
+    private fun mimeOf(ctx: Context, uri: Uri, audio: Boolean): String {
+        val m = try { ctx.contentResolver.getType(uri) } catch (e: Exception) { null }
+        return m ?: if (audio) "audio/mpeg" else "video/mp4"
+    }
+
+    // একই ড্রাইভে হলে মুহূর্তেই মুভ (rename); না হলে কপি করে যাচাই, তারপর আসল মোছা
+    private fun moveFile(src: File, dst: File): Boolean {
+        dst.parentFile?.mkdirs()
+        if (src.renameTo(dst)) return true
+        return try {
+            src.inputStream().use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
+            if (dst.length() == src.length() && src.delete()) true
+            else { dst.delete(); false }
+        } catch (e: Exception) {
+            dst.delete()
+            false
+        }
+    }
+
+    // পুরোনো জায়গার মিডিয়া এন্ট্রি সরাতে / নতুন জায়গা যোগ করতে স্ক্যান
+    private fun rescan(ctx: Context, paths: List<String>, then: () -> Unit) {
+        if (paths.isEmpty()) { then(); return }
+        val left = java.util.concurrent.atomic.AtomicInteger(paths.size)
+        MediaScannerConnection.scanFile(ctx, paths.toTypedArray(), null) { _, _ ->
+            if (left.decrementAndGet() == 0) then()
+        }
     }
 
     private fun progress(act: MediaActivity): AlertDialog =
@@ -210,164 +403,118 @@ object PrivacyOps {
             .setCancelable(false)
             .show()
 
-    // ---------- হাইড ----------
+    // ---------- লক (হাইড) ----------
     fun hide(act: MediaActivity, items: List<Video>, onDone: () -> Unit) {
         if (items.isEmpty()) return
         if (!PrivacyStore.hasPassword(act)) {
             PrivacyUi.setPassword(act, onSet = { hide(act, items, onDone) }, onCancel = {})
             return
         }
-        MaterialAlertDialogBuilder(act)
-            .setTitle(R.string.menu_hide)
-            .setMessage(R.string.hide_confirm)
-            .setPositiveButton(R.string.btn_ok) { _, _ -> runHide(act, items, onDone) }
-            .setNegativeButton(R.string.btn_cancel, null)
-            .show()
+        ensureAccess(act, onGranted = {
+            MaterialAlertDialogBuilder(act)
+                .setTitle(R.string.menu_hide)
+                .setMessage(R.string.hide_confirm)
+                .setPositiveButton(R.string.btn_ok) { _, _ -> runHide(act, items, onDone) }
+                .setNegativeButton(R.string.btn_cancel, null)
+                .show()
+        })
     }
 
     private fun runHide(act: MediaActivity, items: List<Video>, onDone: () -> Unit) {
         val dlg = progress(act)
         val app = act.applicationContext
         Thread {
-            val done = mutableListOf<Pair<Video, PrivacyStore.Item>>()
+            val oldPaths = mutableListOf<String>()
+            var ok = 0
             for (v in items) {
-                var out: File? = null
                 try {
-                    val meta = queryMeta(app, v.uri)
-                    val ext = if (meta.name.contains('.')) "." + meta.name.substringAfterLast('.') else ""
+                    val path = realPath(app, v.uri) ?: continue
+                    val src = File(path)
+                    if (!src.exists()) continue
+                    val name = src.name
+                    val ext = if (name.contains('.')) "." + name.substringAfterLast('.') else ""
                     val fname = UUID.randomUUID().toString() + ext
                     val target = File(PrivacyStore.dir(app), fname)
-                    out = target
-                    app.contentResolver.openInputStream(v.uri)!!.use { i ->
-                        target.outputStream().use { o -> i.copyTo(o) }
+                    val size = src.length()
+                    val mime = mimeOf(app, v.uri, v.isAudio)
+                    val dir = src.parent ?: ""
+                    if (moveFile(src, target)) {
+                        PrivacyStore.add(
+                            app, PrivacyStore.Item(
+                                fname, v.title, ext, mime, dir, v.isAudio,
+                                v.duration, size, v.width, v.height
+                            )
+                        )
+                        oldPaths += path
+                        ok++
                     }
-                    if (target.length() <= 0L || (v.size > 0 && target.length() != v.size)) {
-                        target.delete()
-                        continue
-                    }
-                    val mime = meta.mime.ifEmpty { if (v.isAudio) "audio/mpeg" else "video/mp4" }
-                    done += v to PrivacyStore.Item(
-                        fname, v.title, ext, mime, meta.rel, v.isAudio,
-                        v.duration, v.size, v.width, v.height
-                    )
-                } catch (e: Exception) {
-                    out?.delete()
-                }
+                } catch (e: Exception) { }
             }
-            act.runOnUiThread {
-                dlg.dismiss()
-                removeOriginals(act, done, onDone)
+            rescan(app, oldPaths) {
+                Library.reload(app)
+                act.runOnUiThread {
+                    dlg.dismiss()
+                    Toast.makeText(
+                        act, if (ok > 0) R.string.hidden_done else R.string.action_failed,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    onDone()
+                }
             }
         }.start()
     }
 
-    // কপি সফল হলে তবেই আসল ফাইল মোছা হয়; মোছা না গেলে কপি বাতিল
-    private fun removeOriginals(
-        act: MediaActivity, done: List<Pair<Video, PrivacyStore.Item>>, onDone: () -> Unit
-    ) {
-        if (done.isEmpty()) {
-            Toast.makeText(act, R.string.action_failed, Toast.LENGTH_SHORT).show()
-            return
-        }
-        val dir = PrivacyStore.dir(act)
-        val check = {
-            val removed = done.filter { Library.find(it.first.isAudio, it.first.id) == null }
-            val kept = done - removed.toSet()
-            removed.forEach { PrivacyStore.add(act, it.second) }
-            kept.forEach { File(dir, it.second.file).delete() }
-            Toast.makeText(
-                act, if (removed.isNotEmpty()) R.string.hidden_done else R.string.action_failed,
-                Toast.LENGTH_SHORT
-            ).show()
-            onDone()
-        }
-        val uris = done.map { it.first.uri }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            try {
-                val pi = MediaStore.createDeleteRequest(act.contentResolver, uris)
-                act.requestGrant(pi.intentSender, onCancel = {
-                    done.forEach { File(dir, it.second.file).delete() }
-                }) { MediaActions.finishChange(act, 0, 0, check) }
-            } catch (e: Exception) {
-                done.forEach { File(dir, it.second.file).delete() }
-                Toast.makeText(act, R.string.action_failed, Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            MediaActions.deleteLegacy(act, done.map { it.first }, 0, 0, check, 0)
-        }
-    }
-
-    // ---------- আনহাইড ----------
+    // ---------- আনলক (আনহাইড): আগের ফোল্ডারে ফেরত মুভ ----------
     fun unhide(act: MediaActivity, videos: List<Video>, onDone: () -> Unit) {
         val list = videos.mapNotNull { PrivacyStore.find(act, it) }
         if (list.isEmpty()) return
         val dlg = progress(act)
         val app = act.applicationContext
         Thread {
-            var ok = 0
-            list.forEach { if (restore(app, it)) ok++ }
-            Library.reload(app)
-            act.runOnUiThread {
-                dlg.dismiss()
-                Toast.makeText(
-                    act, if (ok > 0) R.string.unhidden_done else R.string.action_failed,
-                    Toast.LENGTH_SHORT
-                ).show()
-                onDone()
+            val newPaths = mutableListOf<String>()
+            list.forEach { restore(app, it)?.let { p -> newPaths += p } }
+            rescan(app, newPaths) {
+                Library.reload(app)
+                act.runOnUiThread {
+                    dlg.dismiss()
+                    Toast.makeText(
+                        act, if (newPaths.isNotEmpty()) R.string.unhidden_done else R.string.action_failed,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    onDone()
+                }
             }
         }.start()
     }
 
-    private fun restore(ctx: Context, it: PrivacyStore.Item): Boolean {
+    @Suppress("DEPRECATION")
+    private fun restore(ctx: Context, it: PrivacyStore.Item): String? {
         val src = File(PrivacyStore.dir(ctx), it.file)
         if (!src.exists()) {
             PrivacyStore.remove(ctx, it.file)
-            return false
+            return null
         }
-        val name = it.title + it.ext
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val coll = if (it.audio)
-                    MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-                else MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-                val cv = ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-                    put(MediaStore.MediaColumns.MIME_TYPE, it.mime)
-                    put(
-                        MediaStore.MediaColumns.RELATIVE_PATH,
-                        it.relPath.ifEmpty { if (it.audio) "Music/" else "Movies/" }
-                    )
-                    put(MediaStore.MediaColumns.IS_PENDING, 1)
-                }
-                val uri = ctx.contentResolver.insert(coll, cv) ?: return false
-                try {
-                    ctx.contentResolver.openOutputStream(uri)!!.use { o ->
-                        src.inputStream().use { i -> i.copyTo(o) }
-                    }
-                    val done = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
-                    ctx.contentResolver.update(uri, done, null, null)
-                } catch (e: Exception) {
-                    ctx.contentResolver.delete(uri, null, null)
-                    return false
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                val base = Environment.getExternalStoragePublicDirectory(
-                    if (it.audio) Environment.DIRECTORY_MUSIC else Environment.DIRECTORY_MOVIES
-                )
-                base.mkdirs()
-                var target = File(base, name)
-                var n = 1
-                while (target.exists()) target = File(base, it.title + " (" + n++ + ")" + it.ext)
-                src.inputStream().use { i -> target.outputStream().use { o -> i.copyTo(o) } }
-                MediaScannerConnection.scanFile(ctx, arrayOf(target.absolutePath), null, null)
-            }
-        } catch (e: Exception) {
-            return false
+        val root = Environment.getExternalStorageDirectory()
+        // মূল ফোল্ডার: সংরক্ষিত পথ; না থাকলে Movies / Music
+        var base = when {
+            it.relPath.startsWith("/") -> File(it.relPath)
+            it.relPath.isNotEmpty() -> File(root, it.relPath)
+            else -> Environment.getExternalStoragePublicDirectory(
+                if (it.audio) Environment.DIRECTORY_MUSIC else Environment.DIRECTORY_MOVIES
+            )
         }
-        src.delete()
+        if (!base.exists() && !base.mkdirs()) {
+            base = Environment.getExternalStoragePublicDirectory(
+                if (it.audio) Environment.DIRECTORY_MUSIC else Environment.DIRECTORY_MOVIES
+            )
+            base.mkdirs()
+        }
+        var target = File(base, it.title + it.ext)
+        var n = 1
+        while (target.exists()) target = File(base, it.title + " (" + n++ + ")" + it.ext)
+        if (!moveFile(src, target)) return null
         PrivacyStore.remove(ctx, it.file)
-        return true
+        return target.absolutePath
     }
 
     // ---------- স্থায়ীভাবে মোছা ----------
@@ -439,6 +586,10 @@ class PrivacyActivity : MediaActivity() {
             }
         })
 
+        PrivacyOps.ensureAccess(this, onGranted = { askPassword() }, onDenied = { finish() })
+    }
+
+    private fun askPassword() {
         if (PrivacyStore.hasPassword(this)) {
             PrivacyUi.enter(this, { unlock() }, { finish() })
         } else {

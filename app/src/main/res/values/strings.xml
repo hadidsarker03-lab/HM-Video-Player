@@ -256,10 +256,10 @@
     <string name="renamed">Renamed</string>
     <string name="action_failed">Action failed</string>
     <string name="privacy">Privacy</string>
-    <string name="privacy_sub">Hidden videos and audio, protected by a password</string>
+    <string name="privacy_sub">Locked videos and audio, protected by a PIN or fingerprint</string>
     <string name="menu_hide">Hide</string>
     <string name="menu_unhide">Unhide</string>
-    <string name="hide_confirm">Selected files will move into the Privacy folder and disappear from the gallery and every other app. They are stored inside this app, so uninstalling the app or clearing its data will delete them permanently.</string>
+    <string name="hide_confirm">Selected files will be moved directly into the lock folder \u201cHM Player Lock\u201d on your phone and disappear from the gallery and other apps. The folder stays on your phone even if you uninstall the app, so you can get them back after reinstalling. Unlock moves them back to where they were.</string>
     <string name="hidden_done">Hidden</string>
     <string name="unhidden_done">Restored</string>
     <string name="privacy_empty">No hidden files</string>
@@ -267,9 +267,9 @@
     <string name="enter_password">Password</string>
     <string name="set_password">Set a password</string>
     <string name="confirm_password">Confirm password</string>
-    <string name="password_warn">You need this password every time you open Privacy. It cannot be recovered if you forget it.</string>
+    <string name="password_warn">Use digits only. You need this password (or your fingerprint) every time you open Privacy. It cannot be recovered if you forget it.</string>
     <string name="password_wrong">Wrong password</string>
-    <string name="password_short">At least 4 characters</string>
+    <string name="password_short">At least 4 digits</string>
     <string name="password_mismatch">Passwords do not match</string>
     <string name="change_password">Change password</string>
     <string name="password_changed">Password changed</string>
@@ -298,4 +298,7 @@
     <string name="br_download">Download</string>
     <string name="br_video_found">Video link found</string>
     <string name="br_downloading">Downloading…</string>
+    <string name="use_fingerprint">Use fingerprint</string>
+    <string name="use_password">Use PIN</string>
+    <string name="access_needed">To move files into the lock folder and back, allow \u201cAll files access\u201d for this app on the next screen, then come back and try again.</string>
 </resources>

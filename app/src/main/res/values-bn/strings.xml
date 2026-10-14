@@ -256,10 +256,10 @@
     <string name="renamed">নাম বদলানো হয়েছে</string>
     <string name="action_failed">কাজটি করা যায়নি</string>
     <string name="privacy">প্রাইভেসি</string>
-    <string name="privacy_sub">পাসওয়ার্ডে সুরক্ষিত লুকানো ভিডিও ও অডিও</string>
+    <string name="privacy_sub">পিন বা ফিঙ্গারপ্রিন্টে সুরক্ষিত লক করা ভিডিও ও অডিও</string>
     <string name="menu_hide">হাইড করুন</string>
     <string name="menu_unhide">আনহাইড</string>
-    <string name="hide_confirm">বাছা ফাইলগুলো প্রাইভেসি ফোল্ডারে চলে যাবে এবং গ্যালারি ও ফোনের অন্য সব অ্যাপ থেকে সরে যাবে। ফাইলগুলো এই অ্যাপের ভেতরে থাকে, তাই অ্যাপ আনইনস্টল করলে বা ডেটা মুছলে এগুলো চিরতরে মুছে যাবে।</string>
+    <string name="hide_confirm">বাছা ফাইলগুলো সরাসরি ফোনের \u201cHM Player Lock\u201d লক ফোল্ডারে মুভ হয়ে যাবে এবং গ্যালারি ও অন্য সব অ্যাপ থেকে সরে যাবে। অ্যাপ আনইনস্টল করলেও ফোল্ডারটা ফোনে থেকে যায়, তাই আবার ইনস্টল করলে ফাইলগুলো পাবেন। আনলক করলে আগের জায়গায় মুভ হয়ে ফিরে যাবে।</string>
     <string name="hidden_done">হাইড করা হয়েছে</string>
     <string name="unhidden_done">ফিরিয়ে আনা হয়েছে</string>
     <string name="privacy_empty">কোনো লুকানো ফাইল নেই</string>
@@ -267,9 +267,9 @@
     <string name="enter_password">পাসওয়ার্ড</string>
     <string name="set_password">পাসওয়ার্ড সেট করুন</string>
     <string name="confirm_password">পাসওয়ার্ড আবার দিন</string>
-    <string name="password_warn">প্রাইভেসি খুলতে প্রতিবার এই পাসওয়ার্ড লাগবে। ভুলে গেলে ফেরত পাওয়া যাবে না।</string>
+    <string name="password_warn">শুধু সংখ্যা ব্যবহার করুন। প্রাইভেসি খুলতে প্রতিবার এই পাসওয়ার্ড (বা ফিঙ্গারপ্রিন্ট) লাগবে। ভুলে গেলে ফেরত পাওয়া যাবে না।</string>
     <string name="password_wrong">পাসওয়ার্ড ভুল</string>
-    <string name="password_short">কমপক্ষে ৪ অক্ষর দিন</string>
+    <string name="password_short">কমপক্ষে ৪টি সংখ্যা দিন</string>
     <string name="password_mismatch">পাসওয়ার্ড মিলছে না</string>
     <string name="change_password">পাসওয়ার্ড বদলান</string>
     <string name="password_changed">পাসওয়ার্ড বদলানো হয়েছে</string>
@@ -298,4 +298,7 @@
     <string name="br_download">ডাউনলোড</string>
     <string name="br_video_found">ভিডিও লিংক পাওয়া গেছে</string>
     <string name="br_downloading">ডাউনলোড শুরু হয়েছে…</string>
+    <string name="use_fingerprint">ফিঙ্গারপ্রিন্ট ব্যবহার করুন</string>
+    <string name="use_password">পিন ব্যবহার করুন</string>
+    <string name="access_needed">ফাইল লক ফোল্ডারে ও আবার আগের জায়গায় মুভ করতে পরের পর্দায় এই অ্যাপকে \u201cসব ফাইল অ্যাক্সেস\u201d-এর অনুমতি দিন, তারপর ফিরে এসে আবার চেষ্টা করুন।</string>
 </resources>
