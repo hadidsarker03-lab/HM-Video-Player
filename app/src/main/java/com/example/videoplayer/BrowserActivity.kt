@@ -222,21 +222,18 @@ class BrowserActivity : AppCompatActivity() {
             .show()
     }
 
+    // ডাউনলোড চলে নিজস্ব সার্ভিসে, Cloudflare DNS (1.1.1.1) ব্যবহার করে
     private fun download(url: String, ua: String?, cd: String?, mime: String?) {
         try {
-            val name = URLUtil.guessFileName(url, cd, mime)
-            val isVideo = mime?.startsWith("video") == true || videoExt.any { name.lowercase().endsWith(it) }
-            val req = DownloadManager.Request(Uri.parse(url))
-                .setTitle(name)
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(
-                    if (isVideo) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_DOWNLOADS, name
-                )
-            if (!mime.isNullOrEmpty()) req.setMimeType(mime)
-            if (!ua.isNullOrEmpty()) req.addRequestHeader("User-Agent", ua)
-            CookieManager.getInstance().getCookie(url)?.let { req.addRequestHeader("Cookie", it) }
-            (getSystemService(DOWNLOAD_SERVICE) as DownloadManager).enqueue(req)
-            Toast.makeText(this, R.string.br_downloading, Toast.LENGTH_SHORT).show()
+            val i = Intent(this, DownloadService::class.java)
+                .putExtra(DownloadService.EXTRA_URL, url)
+                .putExtra(DownloadService.EXTRA_UA, ua ?: web.settings.userAgentString)
+                .putExtra(DownloadService.EXTRA_COOKIE, CookieManager.getInstance().getCookie(url))
+                .putExtra(DownloadService.EXTRA_REFERER, web.url)
+                .putExtra(DownloadService.EXTRA_CD, cd)
+                .putExtra(DownloadService.EXTRA_MIME, mime)
+            androidx.core.content.ContextCompat.startForegroundService(this, i)
+            Toast.makeText(this, R.string.dl_started, Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, e.message ?: "Error", Toast.LENGTH_LONG).show()
         }

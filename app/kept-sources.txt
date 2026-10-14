@@ -24,3 +24,6 @@ Video.kt
 VideoAdapter.kt
 LevelPill.kt
 BrowserActivity.kt
+CfHttp.kt
+DownloadService.kt
+SlidingTabs.kt

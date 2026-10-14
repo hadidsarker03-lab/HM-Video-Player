@@ -301,4 +301,10 @@
     <string name="use_fingerprint">Use fingerprint</string>
     <string name="use_password">Use PIN</string>
     <string name="access_needed">To move files into the lock folder and back, allow \u201cAll files access\u201d for this app on the next screen, then come back and try again.</string>
+    <string name="dl_started">Download started (Cloudflare DNS)</string>
+    <string name="dl_running">Downloading files…</string>
+    <string name="dl_done">Download complete</string>
+    <string name="dl_failed">Download failed</string>
+    <string name="dl_cancel">Cancel</string>
+    <string name="dl_channel">Downloads</string>
 </resources>

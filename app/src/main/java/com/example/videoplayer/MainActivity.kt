@@ -39,7 +39,7 @@ class MainActivity : MediaActivity() {
     private lateinit var searchInput: android.widget.EditText
     private lateinit var btnSearch: ImageView
     private lateinit var subRow: View
-    private lateinit var tabRow: LinearLayout
+    private lateinit var tabRow: SlidingTabs
     private lateinit var btnSort: ImageView
     private lateinit var btnView: ImageView
     private lateinit var content: View
@@ -51,7 +51,7 @@ class MainActivity : MediaActivity() {
     private lateinit var btnPermission: Button
     private lateinit var btnSample: Button
     private lateinit var pageMe: View
-    private lateinit var nav: BottomNavigationView
+    private lateinit var nav: SlidingTabs
     private lateinit var mediaAdapter: VideoAdapter
     private lateinit var rowAdapter: RowAdapter
     private lateinit var selection: SelectionBar
@@ -128,7 +128,13 @@ class MainActivity : MediaActivity() {
         btnSample = findViewById(R.id.btnSample)
         pageMe = findViewById(R.id.pageMe)
         nav = findViewById(R.id.nav)
-        nav.isItemActiveIndicatorEnabled = false
+        nav.setItems(
+            listOf(
+                SlidingTabs.Item(R.id.nav_video, R.string.tab_video, R.drawable.ic_video),
+                SlidingTabs.Item(R.id.nav_audio, R.string.tab_audio, R.drawable.ic_audio),
+                SlidingTabs.Item(R.id.nav_me, R.string.tab_me, R.drawable.ic_person)
+            ), 0, stacked = true
+        )
 
         mediaAdapter = VideoAdapter(
             this,
@@ -192,7 +198,6 @@ class MainActivity : MediaActivity() {
                 if (searchBar.visibility == View.VISIBLE) closeSearch()
                 dir = if (newTab > tab) 1 else -1
                 tab = newTab
-                Anim.bounceNavIcon(nav, item.itemId)
             }
             buildTabs()
             refresh(true, dir)
@@ -314,50 +319,13 @@ class MainActivity : MediaActivity() {
             R.string.sub_folder,
             R.string.sub_playlist
         )
-        tabRow.removeAllViews()
-        labels.forEachIndexed { i, res ->
-            val selected = i == sub
-            val cell = LinearLayout(this)
-            cell.orientation = LinearLayout.VERTICAL
-            cell.gravity = Gravity.CENTER_HORIZONTAL
-            cell.setPadding(UiKit.dp(this, 14), UiKit.dp(this, 9), UiKit.dp(this, 14), UiKit.dp(this, 9))
-            cell.setBackgroundResource(if (selected) R.drawable.bg_tab_on else R.drawable.bg_tab)
-
-            val tv = TextView(this)
-            tv.setText(res)
-            tv.textSize = 16f
-            // সিস্টেম ফন্টের ওজন বদলালেও লেখা যেন না কাটে: ডিফল্ট ফন্ট + নিজস্ব ন্যূনতম প্রস্থ
-            tv.typeface = if (selected) android.graphics.Typeface.DEFAULT_BOLD
-            else android.graphics.Typeface.DEFAULT
-            tv.setSingleLine(true)
-            tv.ellipsize = null
-            tv.includeFontPadding = true
-            tv.setPadding(UiKit.dp(this, 3), 0, UiKit.dp(this, 3), 0)
-            tv.minWidth = (tv.paint.measureText(getString(res)) * 1.15f).toInt() + UiKit.dp(this, 8)
-            tv.setTextColor(
-                UiKit.textColor(this)
-            )
-            cell.addView(tv, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            ))
-
-            val bar = View(this)
-            bar.setBackgroundResource(R.drawable.bg_indicator)
-            bar.layoutParams = LinearLayout.LayoutParams(UiKit.dp(this, 20), UiKit.dp(this, 3))
-                .apply { topMargin = UiKit.dp(this@MainActivity, 4) }
-            // নিচের দাগ আর লাগে না: নির্বাচিত ট্যাব Neumorphism-এ ভেতরে বসা দেখায়
-            bar.visibility = View.GONE
-            cell.addView(bar)
-
-            cell.setOnClickListener {
-                val d = if (i > sub) 1 else if (i < sub) -1 else 0
-                sub = i
-                buildTabs()
-                refresh(true, d)
-            }
-            tabRow.addView(cell, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { marginEnd = UiKit.dp(this@MainActivity, 8); topMargin = UiKit.dp(this@MainActivity, 6); bottomMargin = UiKit.dp(this@MainActivity, 6) })
+        tabRow.setItems(labels.mapIndexed { i, res -> SlidingTabs.Item(i, res) }, sub)
+        tabRow.setOnItemSelectedListener { item ->
+            val i = item.itemId
+            val d = if (i > sub) 1 else if (i < sub) -1 else 0
+            sub = i
+            refresh(true, d)
+            true
         }
     }
 

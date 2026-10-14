@@ -83,12 +83,11 @@
         android:paddingStart="20dp"
         android:paddingEnd="8dp">
 
-        <LinearLayout
+        <com.example.videoplayer.SlidingTabs
             android:id="@+id/tabRow"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="horizontal" />
+            android:layout_weight="1" />
 
         <ImageView
             android:id="@+id/btnSort"
@@ -181,18 +180,10 @@
         <include layout="@layout/page_me" />
     </FrameLayout>
 
-    <com.google.android.material.bottomnavigation.BottomNavigationView
+    <com.example.videoplayer.SlidingTabs
         android:id="@+id/nav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:elevation="0dp"
-        android:background="@android:color/transparent"
-        app:backgroundTint="@android:color/transparent"
-        app:elevation="0dp"
-        app:itemBackground="@drawable/bg_nav_item"
-        app:itemIconTint="@color/nav_item"
-        app:itemRippleColor="@android:color/transparent"
-        app:itemTextColor="@color/nav_item"
-        app:labelVisibilityMode="labeled"
-        app:menu="@menu/bottom_nav" />
+        android:paddingHorizontal="6dp"
+        android:paddingVertical="4dp" />
 </LinearLayout>

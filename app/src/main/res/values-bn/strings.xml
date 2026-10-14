@@ -301,4 +301,10 @@
     <string name="use_fingerprint">ফিঙ্গারপ্রিন্ট ব্যবহার করুন</string>
     <string name="use_password">পিন ব্যবহার করুন</string>
     <string name="access_needed">ফাইল লক ফোল্ডারে ও আবার আগের জায়গায় মুভ করতে পরের পর্দায় এই অ্যাপকে \u201cসব ফাইল অ্যাক্সেস\u201d-এর অনুমতি দিন, তারপর ফিরে এসে আবার চেষ্টা করুন।</string>
+    <string name="dl_started">ডাউনলোড শুরু হয়েছে (Cloudflare DNS)</string>
+    <string name="dl_running">ফাইল ডাউনলোড হচ্ছে…</string>
+    <string name="dl_done">ডাউনলোড সম্পন্ন</string>
+    <string name="dl_failed">ডাউনলোড ব্যর্থ হয়েছে</string>
+    <string name="dl_cancel">বাতিল</string>
+    <string name="dl_channel">ডাউনলোড</string>
 </resources>
