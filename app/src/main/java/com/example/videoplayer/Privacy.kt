@@ -1,6 +1,15 @@
 package com.example.videoplayer
 
 import android.content.ContentValues
+import android.animation.ObjectAnimator
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.view.HapticFeedbackConstants
+import android.view.ViewGroup
+import android.view.Window
+import android.widget.FrameLayout
+import androidx.core.graphics.ColorUtils
 import android.provider.Settings
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
@@ -46,7 +55,8 @@ object PrivacyStore {
 
     // লক ফোল্ডার: ফোনের স্টোরেজে অ্যাপের জন্য আলাদা ফোল্ডার (.nomedia সহ, গ্যালারিতে দেখা যায় না)।
     // অ্যাপ আনইনস্টল করলেও এখানকার ফাইল ও তালিকা (.index.json) থেকে যায়।
-    const val FOLDER = "HM Player Lock"
+    const val FOLDER = ".HM Player Lock"
+    private const val OLD_FOLDER = "HM Player Lock"
     private const val INDEX = ".index.json"
     private var cache: List<Item>? = null
     private var cacheStamp = -1L
@@ -61,7 +71,11 @@ object PrivacyStore {
 
     @Suppress("DEPRECATION")
     fun dir(c: Context): File {
-        val d = File(Environment.getExternalStorageDirectory(), FOLDER)
+        val root = Environment.getExternalStorageDirectory()
+        val d = File(root, FOLDER)
+        val old = File(root, OLD_FOLDER)
+        // আগের দৃশ্যমান ফোল্ডার থাকলে লুকানো (ডট) ফোল্ডারে সরানো
+        if (!d.exists() && old.exists()) try { old.renameTo(d) } catch (e: Exception) { }
         d.mkdirs()
         val nm = File(d, ".nomedia")
         if (!nm.exists()) try { nm.createNewFile() } catch (e: Exception) { }
@@ -95,6 +109,7 @@ object PrivacyStore {
     fun items(c: Context): List<Item> {
         if (!hasAccess(c)) return emptyList()
         migrateOld(c)
+        migrateLayout(c)
         val f = indexFile(c)
         val stamp = if (f.exists()) f.lastModified() else 0L
         cache?.let { if (stamp == cacheStamp) return it }
@@ -152,6 +167,23 @@ object PrivacyStore {
             val existing = readIndexItems(c)
             save(c, existing + moved)
         }
+    }
+
+    // পুরোনো ফাইলের নাম বদলে ডট-নাম (এক্সটেনশন ছাড়া) করা, যাতে কোনো ফাইল ম্যানেজারে ভিডিও/অডিও চেনা না যায়
+    private fun migrateLayout(c: Context) {
+        val p = AppSettings.prefs(c)
+        if (p.getBoolean("lock_v2", false)) return
+        val list = readIndexItems(c)
+        if (list.isNotEmpty()) {
+            val out = list.map { i ->
+                if (i.file.startsWith(".")) i else {
+                    val nf = "." + UUID.randomUUID().toString().replace("-", "")
+                    if (File(dir(c), i.file).renameTo(File(dir(c), nf))) i.copy(file = nf) else i
+                }
+            }
+            save(c, out)
+        }
+        p.edit().putBoolean("lock_v2", true).apply()
     }
 
     private fun readIndexItems(c: Context): List<Item> {
@@ -263,6 +295,23 @@ object PrivacyUi {
     }
 
     fun enter(act: MediaActivity, onOk: () -> Unit, onCancel: () -> Unit) {
+        // আগের (অক্ষরের) পাসওয়ার্ড থাকলে সাধারণ কিবোর্ডের ডায়ালগ
+        if (!PrivacyStore.isNumeric(act)) { enterLegacy(act, onOk, onCancel); return }
+        val can = canFinger(act)
+        lateinit var sheet: PinSheet
+        sheet = PinSheet(
+            act, R.string.privacy, R.string.enter_password, can,
+            { finger(act, { sheet.dismiss(); onOk() }, { }) }, onCancel,
+            onSubmit = { pw, sh ->
+                if (PrivacyStore.check(act, pw)) { sh.dismiss(); onOk() } else sh.error(R.string.password_wrong)
+            },
+            autoCheck = { PrivacyStore.check(act, it) }, onAuto = onOk
+        )
+        sheet.show()
+        if (can) finger(act, { sheet.dismiss(); onOk() }, { })
+    }
+
+    private fun enterLegacy(act: MediaActivity, onOk: () -> Unit, onCancel: () -> Unit) {
         val pw = field(act, R.string.enter_password, PrivacyStore.isNumeric(act))
         val dlg = MaterialAlertDialogBuilder(act)
             .setTitle(R.string.privacy)
@@ -290,32 +339,33 @@ object PrivacyUi {
         dlg.show()
     }
 
+    // নতুন PIN তৈরি: দু'ধাপে (তৈরি, তারপর নিশ্চিত)
     fun setPassword(act: MediaActivity, onSet: () -> Unit, onCancel: () -> Unit) {
-        val a = field(act, R.string.set_password)
-        val b = field(act, R.string.confirm_password)
-        val dlg = MaterialAlertDialogBuilder(act)
-            .setTitle(R.string.set_password)
-            .setMessage(R.string.password_warn)
-            .setView(box(act, a, b))
-            .setCancelable(false)
-            .setPositiveButton(R.string.btn_ok, null)
-            .setNegativeButton(R.string.btn_cancel) { _, _ -> onCancel() }
-            .create()
-        dlg.setOnShowListener {
-            dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val p = a.text.toString()
+        var first: String? = null
+        val sheet = PinSheet(
+            act, R.string.set_password, R.string.password_warn, false, null, onCancel,
+            onSubmit = { pw, sh ->
+                val f = first
                 when {
-                    p.length < 4 -> a.error = act.getString(R.string.password_short)
-                    p != b.text.toString() -> b.error = act.getString(R.string.password_mismatch)
+                    f == null -> {
+                        first = pw
+                        sh.clear()
+                        sh.setTitles(R.string.confirm_password, 0)
+                    }
+                    f != pw -> {
+                        first = null
+                        sh.setTitles(R.string.set_password, R.string.password_warn)
+                        sh.error(R.string.password_mismatch)
+                    }
                     else -> {
-                        PrivacyStore.setPassword(act, p)
-                        dlg.dismiss()
+                        PrivacyStore.setPassword(act, pw)
+                        sh.dismiss()
                         onSet()
                     }
                 }
             }
-        }
-        dlg.show()
+        )
+        sheet.show()
     }
 
     fun change(act: MediaActivity) {
@@ -324,6 +374,232 @@ object PrivacyUi {
                 Toast.makeText(act, R.string.password_changed, Toast.LENGTH_SHORT).show()
             }, onCancel = {})
         }, onCancel = {})
+    }
+}
+
+// প্রফেশনাল PIN শিট: লক আইকন, ডট ইন্ডিকেটর, নিজস্ব নম্বর কীপ্যাড, ফিঙ্গারপ্রিন্ট কী, ভুল হলে ঝাঁকুনি
+private class PinSheet(
+    private val act: MediaActivity,
+    title: Int,
+    subtitle: Int,
+    private val fingerKey: Boolean,
+    private val onFinger: (() -> Unit)?,
+    private val onCancel: () -> Unit,
+    private val onSubmit: (String, PinSheet) -> Unit,
+    private val autoCheck: ((String) -> Boolean)? = null,
+    private val onAuto: (() -> Unit)? = null
+) {
+    private val dlg = android.app.Dialog(act)
+    private val sb = StringBuilder()
+    private val titleTv = TextView(act)
+    private val subTv = TextView(act)
+    private val errTv = TextView(act)
+    private val dots = LinearLayout(act)
+    private val acc = UiKit.accent(act)
+    private val textC = UiKit.textColor(act)
+    private val dens = act.resources.displayMetrics.density
+    private fun d(v: Int) = UiKit.dp(act, v)
+
+    init {
+        setTitles(title, subtitle)
+    }
+
+    fun setTitles(t: Int, sub: Int) {
+        titleTv.setText(t)
+        if (sub != 0) { subTv.setText(sub); subTv.visibility = View.VISIBLE } else subTv.visibility = View.GONE
+    }
+
+    fun clear() {
+        sb.clear()
+        errTv.visibility = View.INVISIBLE
+        refreshDots()
+    }
+
+    fun error(msg: Int) {
+        errTv.setText(msg)
+        errTv.visibility = View.VISIBLE
+        sb.clear()
+        refreshDots()
+        dots.performHapticFeedback(HapticFeedbackConstants.REJECT.takeIf { android.os.Build.VERSION.SDK_INT >= 30 }
+            ?: HapticFeedbackConstants.LONG_PRESS)
+        ObjectAnimator.ofFloat(
+            dots, "translationX", 0f, -18f * dens, 18f * dens, -12f * dens, 12f * dens, -6f * dens, 6f * dens, 0f
+        ).setDuration(380).start()
+    }
+
+    fun dismiss() { try { dlg.dismiss() } catch (e: Exception) { } }
+
+    private fun refreshDots() {
+        dots.removeAllViews()
+        val n = maxOf(4, sb.length)
+        for (i in 0 until n) {
+            val dot = View(act)
+            val filled = i < sb.length
+            dot.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                if (filled) setColor(acc) else { setColor(0); setStroke(d(2), 0x66888888) }
+            }
+            dots.addView(dot, LinearLayout.LayoutParams(d(14), d(14)).apply { setMargins(d(7), 0, d(7), 0) })
+        }
+    }
+
+    private fun addDigit(k: String) {
+        if (sb.length >= 12) return
+        sb.append(k)
+        errTv.visibility = View.INVISIBLE
+        refreshDots()
+        if (sb.length >= 4 && autoCheck?.invoke(sb.toString()) == true) {
+            dismiss()
+            onAuto?.invoke()
+        }
+    }
+
+    private fun backspace() {
+        if (sb.isNotEmpty()) { sb.deleteCharAt(sb.length - 1); refreshDots() }
+    }
+
+    private fun key(k: String): View {
+        val cell = FrameLayout(act)
+        when (k) {
+            "F" -> if (fingerKey && onFinger != null) {
+                val iv = ImageView(act).apply { setImageResource(R.drawable.ic_fingerprint); setColorFilter(acc) }
+                cell.addView(iv, FrameLayout.LayoutParams(d(30), d(30), Gravity.CENTER))
+                cell.setOnClickListener { onFinger.invoke() }
+                Anim.pressable(cell, 0.9f)
+            }
+            "B" -> {
+                val iv = ImageView(act).apply { setImageResource(R.drawable.ic_backspace); setColorFilter(textC) }
+                cell.addView(iv, FrameLayout.LayoutParams(d(26), d(26), Gravity.CENTER))
+                cell.setOnClickListener { backspace() }
+                cell.setOnLongClickListener { sb.clear(); refreshDots(); true }
+                Anim.pressable(cell, 0.9f)
+            }
+            else -> {
+                cell.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(ContextCompat.getColor(act, R.color.surface_alt))
+                }
+                val tv = TextView(act).apply {
+                    text = k
+                    textSize = 24f
+                    setTextColor(textC)
+                    gravity = Gravity.CENTER
+                }
+                cell.addView(tv, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                cell.setOnClickListener {
+                    it.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    addDigit(k)
+                }
+                Anim.pressable(cell, 0.9f)
+            }
+        }
+        return cell
+    }
+
+    fun show() {
+        dlg.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val root = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(d(22), d(26), d(22), d(14))
+            background = GradientDrawable().apply {
+                setColor(ContextCompat.getColor(act, R.color.dialog_bg))
+                cornerRadius = d(28).toFloat()
+            }
+        }
+        val badge = FrameLayout(act).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(ColorUtils.setAlphaComponent(acc, 0x2A))
+            }
+        }
+        badge.addView(
+            ImageView(act).apply { setImageResource(R.drawable.ic_lock); setColorFilter(acc) },
+            FrameLayout.LayoutParams(d(30), d(30), Gravity.CENTER)
+        )
+        root.addView(badge, LinearLayout.LayoutParams(d(68), d(68)))
+
+        titleTv.apply {
+            textSize = 20f
+            setTextColor(textC)
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            gravity = Gravity.CENTER
+        }
+        root.addView(titleTv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { topMargin = d(14) })
+        subTv.apply {
+            textSize = 12.5f
+            setTextColor(0xFF8A8F9A.toInt())
+            gravity = Gravity.CENTER
+        }
+        root.addView(subTv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { topMargin = d(6) })
+
+        dots.orientation = LinearLayout.HORIZONTAL
+        dots.gravity = Gravity.CENTER
+        root.addView(dots, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { topMargin = d(20) })
+        errTv.apply {
+            textSize = 12.5f
+            setTextColor(0xFFE5484D.toInt())
+            gravity = Gravity.CENTER
+            visibility = View.INVISIBLE
+            text = " "
+        }
+        root.addView(errTv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { topMargin = d(8) })
+
+        val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "F", "0", "B")
+        for (r in 0 until 4) {
+            val row = LinearLayout(act)
+            row.orientation = LinearLayout.HORIZONTAL
+            for (c in 0 until 3) {
+                row.addView(key(keys[r * 3 + c]), LinearLayout.LayoutParams(0, d(60), 1f).apply {
+                    setMargins(d(10), d(4), d(10), d(4))
+                })
+            }
+            root.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
+        val ok = TextView(act).apply {
+            setText(R.string.btn_ok)
+            textSize = 16f
+            setTextColor(0xFFFFFFFF.toInt())
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply { setColor(acc); cornerRadius = d(16).toFloat() }
+            setOnClickListener {
+                if (sb.length < 4) this@PinSheet.error(R.string.password_short) else onSubmit(sb.toString(), this@PinSheet)
+            }
+        }
+        Anim.pressable(ok, 0.97f)
+        root.addView(ok, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, d(50)).apply { topMargin = d(12) })
+
+        val cancel = TextView(act).apply {
+            setText(R.string.btn_cancel)
+            textSize = 14f
+            setTextColor(0xFF8A8F9A.toInt())
+            gravity = Gravity.CENTER
+            setPadding(0, d(10), 0, d(6))
+            setOnClickListener { dismiss(); onCancel() }
+        }
+        root.addView(cancel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        refreshDots()
+        dlg.setContentView(root)
+        dlg.setCancelable(false)
+        dlg.window?.apply {
+            setBackgroundDrawable(ColorDrawable(0))
+            addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            setLayout(minOf((act.resources.displayMetrics.widthPixels * 0.92f).toInt(), d(380)),
+                ViewGroup.LayoutParams.WRAP_CONTENT)
+            setDimAmount(0.6f)
+        }
+        dlg.show()
+        root.alpha = 0f
+        root.translationY = 24f * dens
+        root.animate().alpha(1f).translationY(0f).setDuration(280)
+            .setInterpolator(android.view.animation.PathInterpolator(0.22f, 1f, 0.36f, 1f)).start()
     }
 }
 
@@ -433,7 +709,8 @@ object PrivacyOps {
                     if (!src.exists()) continue
                     val name = src.name
                     val ext = if (name.contains('.')) "." + name.substringAfterLast('.') else ""
-                    val fname = UUID.randomUUID().toString() + ext
+                    // ডট-নাম, এক্সটেনশন নেই: ফাইল ম্যানেজারে ভিডিও/অডিও হিসেবে চেনা যায় না
+                    val fname = "." + UUID.randomUUID().toString().replace("-", "")
                     val target = File(PrivacyStore.dir(app), fname)
                     val size = src.length()
                     val mime = mimeOf(app, v.uri, v.isAudio)

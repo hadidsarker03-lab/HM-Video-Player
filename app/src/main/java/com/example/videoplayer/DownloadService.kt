@@ -127,11 +127,31 @@ class DownloadService : Service() {
     private fun isVideo(mime: String, name: String) =
         mime.startsWith("video") || listOf(".mp4", ".mkv", ".webm", ".3gp", ".mov", ".avi", ".m3u8").any { name.lowercase().endsWith(it) }
 
+    // URLUtil অজানা টাইপে ".bin" বসায়; ভিডিও/অডিওর আসল এক্সটেনশন URL বা MIME থেকে ঠিক করে
+    private fun smartName(url: String, cd: String?, mime: String?): String {
+        val n = URLUtil.guessFileName(url, cd, mime)
+        val ext = n.substringAfterLast('.', "").lowercase()
+        if (ext !in listOf("bin", "bet", "dat", "")) return n
+        val known = listOf("mp4", "mkv", "webm", "3gp", "mov", "avi", "mp3", "m4a", "aac", "flac", "wav", "ogg")
+        val pathExt = (Uri.parse(url).lastPathSegment ?: "").substringAfterLast('.', "").lowercase()
+        val m = (mime ?: "").substringBefore(';').trim().lowercase()
+        val fromMime = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(m) ?: ""
+        val fix = when {
+            pathExt in known -> pathExt
+            fromMime.isNotEmpty() && fromMime != "bin" -> fromMime
+            m.startsWith("video") -> "mp4"
+            m.startsWith("audio") -> "mp3"
+            else -> return n
+        }
+        val base = if (n.contains('.')) n.substringBeforeLast('.') else n
+        return "$base.$fix"
+    }
+
     private fun download(
         id: Int, cancel: AtomicBoolean, url: String, ua: String?, cookie: String?,
         referer: String?, cd: String?, mimeIn: String?
     ) {
-        var name = URLUtil.guessFileName(url, cd, mimeIn)
+        var name = smartName(url, cd, mimeIn)
         var outUri: Uri? = null
         var outFile: File? = null
         try {
@@ -143,9 +163,10 @@ class DownloadService : Service() {
             CfHttp.client.newCall(rb.build()).execute().use { resp ->
                 if (!resp.isSuccessful) throw java.io.IOException("HTTP " + resp.code)
                 val body = resp.body ?: throw java.io.IOException("empty")
-                name = URLUtil.guessFileName(url, resp.header("Content-Disposition") ?: cd,
+                name = smartName(url, resp.header("Content-Disposition") ?: cd,
                     resp.header("Content-Type") ?: mimeIn)
-                val mime = (resp.header("Content-Type") ?: mimeIn ?: contentType(name)).substringBefore(';')
+                var mime = (resp.header("Content-Type") ?: mimeIn ?: contentType(name)).substringBefore(';').trim()
+                if (mime.startsWith("application/octet") || mime.startsWith("binary/") || mime.isEmpty()) mime = contentType(name)
                 val total = body.contentLength()
 
                 val os = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

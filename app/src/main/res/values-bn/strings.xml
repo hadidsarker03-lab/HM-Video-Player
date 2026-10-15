@@ -259,7 +259,7 @@
     <string name="privacy_sub">পিন বা ফিঙ্গারপ্রিন্টে সুরক্ষিত লক করা ভিডিও ও অডিও</string>
     <string name="menu_hide">হাইড করুন</string>
     <string name="menu_unhide">আনহাইড</string>
-    <string name="hide_confirm">বাছা ফাইলগুলো সরাসরি ফোনের \u201cHM Player Lock\u201d লক ফোল্ডারে মুভ হয়ে যাবে এবং গ্যালারি ও অন্য সব অ্যাপ থেকে সরে যাবে। অ্যাপ আনইনস্টল করলেও ফোল্ডারটা ফোনে থেকে যায়, তাই আবার ইনস্টল করলে ফাইলগুলো পাবেন। আনলক করলে আগের জায়গায় মুভ হয়ে ফিরে যাবে।</string>
+    <string name="hide_confirm">বাছা ফাইলগুলো ফোনের একটা লুকানো লক ফোল্ডারে মুভ হয়ে যাবে। গ্যালারি, ফাইল ম্যানেজার ও অন্য সব অ্যাপ থেকে সরে যাবে, শুধু এই অ্যাপের লক সেকশনে দেখা যাবে। অ্যাপ আনইনস্টল করলেও ফোল্ডারটা ফোনে থেকে যায়, তাই আবার ইনস্টল করলে ফাইলগুলো পাবেন। আনলক করলে আগের জায়গায় মুভ হয়ে ফিরে যাবে।</string>
     <string name="hidden_done">হাইড করা হয়েছে</string>
     <string name="unhidden_done">ফিরিয়ে আনা হয়েছে</string>
     <string name="privacy_empty">কোনো লুকানো ফাইল নেই</string>
@@ -307,4 +307,19 @@
     <string name="dl_failed">ডাউনলোড ব্যর্থ হয়েছে</string>
     <string name="dl_cancel">বাতিল</string>
     <string name="dl_channel">ডাউনলোড</string>
+    <string name="br_home_hint">গুগলে সার্চ করুন বা URL লিখুন</string>
+    <string name="br_ai_mode">এআই মোড</string>
+    <string name="br_incognito">ইনকগনিটো</string>
+    <string name="br_incognito_on">ইনকগনিটো: চালু</string>
+    <string name="br_incognito_off">ইনকগনিটো: বন্ধ</string>
+    <string name="br_adblock_on">অ্যাড ব্লক: চালু</string>
+    <string name="br_adblock_off">অ্যাড ব্লক: বন্ধ</string>
+    <string name="br_theme_on">সাইটে অ্যাপের থিম: চালু</string>
+    <string name="br_theme_off">সাইটে অ্যাপের থিম: বন্ধ</string>
+    <string name="br_videos">এই পেজের ভিডিও</string>
+    <string name="br_no_video">এই পেজে ডাউনলোডযোগ্য ভিডিও পাওয়া যায়নি</string>
+    <string name="br_stream_only">এটা স্ট্রিম (HLS/DASH)। চালানো যাবে, সরাসরি ডাউনলোড হবে না।</string>
+    <string name="br_blocked_fmt">%1$d টি অ্যাড/ট্র্যাকার ব্লক হয়েছে</string>
+    <string name="br_voice_prompt">বলুন, সার্চ করব</string>
+    <string name="br_voice_missing">এই ফোনে ভয়েস সার্চ নেই</string>
 </resources>

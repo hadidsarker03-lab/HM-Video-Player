@@ -259,7 +259,7 @@
     <string name="privacy_sub">Locked videos and audio, protected by a PIN or fingerprint</string>
     <string name="menu_hide">Hide</string>
     <string name="menu_unhide">Unhide</string>
-    <string name="hide_confirm">Selected files will be moved directly into the lock folder \u201cHM Player Lock\u201d on your phone and disappear from the gallery and other apps. The folder stays on your phone even if you uninstall the app, so you can get them back after reinstalling. Unlock moves them back to where they were.</string>
+    <string name="hide_confirm">Selected files will be moved into a hidden lock folder on your phone. They disappear from the gallery, the file manager and all other apps, and can be seen only inside the Lock section of this app. The folder stays on your phone even if you uninstall the app, so you can get the files back after reinstalling. Unlock moves them back to where they were.</string>
     <string name="hidden_done">Hidden</string>
     <string name="unhidden_done">Restored</string>
     <string name="privacy_empty">No hidden files</string>
@@ -307,4 +307,19 @@
     <string name="dl_failed">Download failed</string>
     <string name="dl_cancel">Cancel</string>
     <string name="dl_channel">Downloads</string>
+    <string name="br_home_hint">Search Google or type URL</string>
+    <string name="br_ai_mode">AI Mode</string>
+    <string name="br_incognito">Incognito</string>
+    <string name="br_incognito_on">Incognito: On</string>
+    <string name="br_incognito_off">Incognito: Off</string>
+    <string name="br_adblock_on">Ad block: On</string>
+    <string name="br_adblock_off">Ad block: Off</string>
+    <string name="br_theme_on">App theme on sites: On</string>
+    <string name="br_theme_off">App theme on sites: Off</string>
+    <string name="br_videos">Videos on this page</string>
+    <string name="br_no_video">No downloadable video found on this page</string>
+    <string name="br_stream_only">This is a stream (HLS/DASH). It can be played but not downloaded directly.</string>
+    <string name="br_blocked_fmt">%1$d ads/trackers blocked</string>
+    <string name="br_voice_prompt">Speak to search</string>
+    <string name="br_voice_missing">Voice search is not available on this device</string>
 </resources>

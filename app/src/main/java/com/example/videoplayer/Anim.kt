@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
+import android.view.animation.PathInterpolator
 import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 
@@ -90,9 +91,10 @@ object Anim {
         val d = v.resources.displayMetrics.density
         v.animate().cancel()
         v.alpha = 0f
-        v.translationX = dir * 36f * d
-        v.translationY = if (dir == 0) 14f * d else 0f
+        v.translationX = dir * 26f * d
+        v.translationY = if (dir == 0) 10f * d else 0f
         v.animate().alpha(1f).translationX(0f).translationY(0f)
-            .setDuration(300).setInterpolator(DecelerateInterpolator(1.8f)).start()
+            .setDuration(360).setInterpolator(PathInterpolator(0.22f, 1f, 0.36f, 1f))
+            .withLayer().start()
     }
 }

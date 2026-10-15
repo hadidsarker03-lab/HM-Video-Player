@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- গ্লাস ট্যাব/বোতাম: উঁচু Neumorphism + গ্লাস ফিল + হালকা-ঘন গ্রেডিয়েন্ট বর্ডার -->
+<!-- সমতল ট্যাব/বোতাম: কোনো গ্লসি/গ্রেডিয়েন্ট নেই, শুধু নরম Neumorphism ছায়া -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:left="3dp" android:top="3dp">
         <shape android:shape="rectangle">
@@ -15,27 +15,7 @@
     </item>
     <item android:left="2dp" android:top="2dp" android:right="2dp" android:bottom="2dp">
         <shape android:shape="rectangle">
-            <gradient
-                android:angle="315"
-                android:centerColor="#38FFFFFF"
-                android:endColor="#BFFFFFFF"
-                android:startColor="#F2F6FA" />
-            <corners android:radius="60dp" />
-        </shape>
-    </item>
-    <item android:left="3.5dp" android:top="3.5dp" android:right="3.5dp" android:bottom="3.5dp">
-        <shape android:shape="rectangle">
             <solid android:color="?attr/hmSurfaceAlt" />
-            <corners android:radius="60dp" />
-        </shape>
-    </item>
-    <item android:left="3.5dp" android:top="3.5dp" android:right="3.5dp" android:bottom="3.5dp">
-        <shape android:shape="rectangle">
-            <gradient
-                android:angle="270"
-                android:centerColor="#0DFFFFFF"
-                android:endColor="#2996BED7"
-                android:startColor="#2BFFFFFF" />
             <corners android:radius="60dp" />
         </shape>
     </item>

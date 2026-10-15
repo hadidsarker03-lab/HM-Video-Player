@@ -1,5 +1,7 @@
 package com.example.videoplayer
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Typeface
@@ -106,6 +108,7 @@ class SlidingTabs @JvmOverloads constructor(
             if (stacked) cell.setPadding(d(10), d(10), d(10), d(8)) else cell.setPadding(d(18), d(9), d(18), d(9))
             cell.setBackgroundResource(R.drawable.bg_tab)
             cell.setOnClickListener { choose(i) }
+            Anim.pressable(cell, 0.95f)
             val lp = if (stacked)
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                     .apply { setMargins(d(14), d(6), d(14), d(6)) }
@@ -147,6 +150,8 @@ class SlidingTabs @JvmOverloads constructor(
         val toW = cell.width.toFloat()
         anim?.cancel()
         if (!animate || slider.visibility != View.VISIBLE) {
+            sIcon.alpha = 1f
+            sText.alpha = 1f
             apply(toL, toW, cell)
             return
         }
@@ -156,13 +161,23 @@ class SlidingTabs @JvmOverloads constructor(
             it.height = cell.height
             it.topMargin = cell.top
         }
+        sIcon.alpha = 0f
+        sText.alpha = 0f
         anim = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 380
-            interpolator = PathInterpolator(0.5f, 1.4f, 0.5f, 1f)
+            duration = 340
+            // নরম ডিসেলারেট (কোনো ঝাঁকুনি/ওভারশুট নেই), লেখা ধীরে ফুটে ওঠে
+            interpolator = PathInterpolator(0.22f, 1f, 0.36f, 1f)
             addUpdateListener { a ->
                 val f = a.animatedValue as Float
                 apply(fromL + (toL - fromL) * f, (fromW + (toW - fromW) * f).coerceAtLeast(0f), cell, false)
+                val t = ((f - 0.3f) / 0.7f).coerceIn(0f, 1f)
+                sIcon.alpha = t
+                sText.alpha = t
             }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(an: Animator) { sIcon.alpha = 1f; sText.alpha = 1f }
+                override fun onAnimationCancel(an: Animator) { sIcon.alpha = 1f; sText.alpha = 1f }
+            })
             start()
         }
     }

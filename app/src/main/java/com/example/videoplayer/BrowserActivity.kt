@@ -1,12 +1,14 @@
 package com.example.videoplayer
 
 import android.annotation.SuppressLint
-import android.app.DownloadManager
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
+import android.speech.RecognizerIntent
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -16,7 +18,9 @@ import android.webkit.CookieManager
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
+import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
@@ -24,41 +28,66 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import org.json.JSONObject
+import org.json.JSONTokener
+import java.io.ByteArrayInputStream
 
-// Me ট্যাবের ব্রাউজার: ঠিকানা/সার্চ বার, সামনে-পিছনে, রিলোড, ডাউনলোড, ভিডিও লিংক সরাসরি HM প্লেয়ারে চালানো
+// ব্রাউজার: অ্যাপের নিজস্ব UI (হোমপেজ, বার, মেনু), অ্যাড ব্লক, সব সাইটে অ্যাপের থিম, যেকোনো ভিডিও ডাউনলোড
 class BrowserActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
     private lateinit var urlBar: EditText
     private lateinit var progress: ProgressBar
+    private lateinit var home: View
     private lateinit var btnBack: ImageView
     private lateinit var btnFwd: ImageView
     private lateinit var btnReload: ImageView
+    private lateinit var btnShield: ImageView
+    private lateinit var btnDl: ImageView
+    private lateinit var dlBadge: TextView
+    private lateinit var incognitoLabel: TextView
+    private lateinit var incognitoPill: LinearLayout
 
-    private val videoExt = listOf(".mp4", ".mkv", ".webm", ".m3u8", ".3gp", ".mov", ".avi", ".mp3", ".m4a")
+    private var incognito = false
+    private var blocked = 0
+    private val found = LinkedHashSet<String>()
+
+    private val mediaExt = listOf(".mp4", ".mkv", ".webm", ".m3u8", ".3gp", ".mov", ".avi", ".mp3", ".m4a", ".mpd")
+
+    private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        val q = r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if (r.resultCode == RESULT_OK && !q.isNullOrEmpty()) go(q)
+    }
+
+    private fun dp(v: Int) = UiKit.dp(this, v)
+    private fun adOn() = AppSettings.prefs(this).getBoolean("adblock", true)
+    private fun themeOn() = AppSettings.prefs(this).getBoolean("force_theme", true)
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppSettings.applyTheme(this)
         super.onCreate(savedInstanceState)
 
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
 
-        // ---- উপরের বার ----
+        // ---- উপরের বার: বন্ধ, ঠিকানা, রিলোড ----
         val top = LinearLayout(this)
         top.orientation = LinearLayout.HORIZONTAL
         top.gravity = Gravity.CENTER_VERTICAL
-        top.setPadding(UiKit.dp(this, 8), UiKit.dp(this, 6), UiKit.dp(this, 8), UiKit.dp(this, 6))
+        top.setPadding(dp(8), dp(6), dp(8), dp(6))
 
         val close = iconBtn(R.drawable.ic_back) { finish() }
-        btnBack = iconBtn(R.drawable.ic_prev) { if (web.canGoBack()) web.goBack() }
-        btnFwd = iconBtn(R.drawable.ic_next) { if (web.canGoForward()) web.goForward() }
         btnReload = iconBtn(R.drawable.ic_history) { reloadOrStop() }
-
         urlBar = EditText(this).apply {
             hint = getString(R.string.br_hint)
             setSingleLine()
@@ -66,34 +95,31 @@ class BrowserActivity : AppCompatActivity() {
             setTextColor(UiKit.textColor(this@BrowserActivity))
             setHintTextColor(0x88888888.toInt())
             setBackgroundResource(R.drawable.bg_tab)
-            setPadding(UiKit.dp(this@BrowserActivity, 16), UiKit.dp(this@BrowserActivity, 10),
-                UiKit.dp(this@BrowserActivity, 16), UiKit.dp(this@BrowserActivity, 10))
+            setPadding(dp(16), dp(10), dp(16), dp(10))
             imeOptions = EditorInfo.IME_ACTION_GO
             inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI
             setOnEditorActionListener { _, id, ev ->
-                if (id == EditorInfo.IME_ACTION_GO ||
-                    (ev != null && ev.keyCode == KeyEvent.KEYCODE_ENTER)
-                ) { go(text.toString()); true } else false
+                if (id == EditorInfo.IME_ACTION_GO || (ev != null && ev.keyCode == KeyEvent.KEYCODE_ENTER)) {
+                    go(text.toString()); true
+                } else false
             }
         }
         top.addView(close)
         top.addView(urlBar, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            .apply { setMargins(UiKit.dp(this@BrowserActivity, 4), 0, UiKit.dp(this@BrowserActivity, 4), 0) })
-        top.addView(btnBack)
-        top.addView(btnFwd)
+            .apply { setMargins(dp(4), 0, dp(4), 0) })
         top.addView(btnReload)
         root.addView(top)
 
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
             visibility = View.GONE
-            progressTintList = android.content.res.ColorStateList.valueOf(UiKit.accent(this@BrowserActivity))
+            progressTintList = ColorStateList.valueOf(UiKit.accent(this@BrowserActivity))
         }
-        root.addView(progress, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, UiKit.dp(this, 3)))
+        root.addView(progress, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(3)))
 
-        // ---- ওয়েবভিউ ----
+        // ---- ওয়েবভিউ + হোমপেজ ----
         web = WebView(this)
+        web.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
         web.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -102,17 +128,29 @@ class BrowserActivity : AppCompatActivity() {
             builtInZoomControls = true
             displayZoomControls = false
             mediaPlaybackRequiresUserGesture = true
+            javaScriptCanOpenWindowsAutomatically = false
+            setSupportMultipleWindows(false)
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }
         CookieManager.getInstance().setAcceptCookie(true)
         web.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest): WebResourceResponse? {
+                val u = r.url.toString()
+                if (adOn() && AdBlock.isAd(u)) {
+                    blocked++
+                    return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                }
+                if (isMediaLink(u)) runOnUiThread { addFound(u) }
+                return null
+            }
+
             override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
                 val u = r.url.toString()
                 if (!u.startsWith("http")) {
-                    // অন্য অ্যাপের লিংক (mailto:, tel: ইত্যাদি)
                     try { startActivity(Intent(Intent.ACTION_VIEW, r.url)) } catch (e: Exception) { }
                     return true
                 }
+                if (adOn() && AdBlock.isAd(u)) { blocked++; return true }
                 if (isMediaLink(u)) { askMedia(u); return true }
                 return false
             }
@@ -120,11 +158,17 @@ class BrowserActivity : AppCompatActivity() {
             override fun onPageStarted(v: WebView, url: String, icon: Bitmap?) {
                 urlBar.setText(url)
                 progress.visibility = View.VISIBLE
+                found.clear()
+                updateDl()
+                injectPage(v)
             }
+
+            override fun onPageCommitVisible(v: WebView, url: String) { injectPage(v) }
 
             override fun onPageFinished(v: WebView, url: String) {
                 progress.visibility = View.GONE
                 updateNav()
+                injectPage(v)
             }
         }
         web.webChromeClient = object : WebChromeClient() {
@@ -134,7 +178,41 @@ class BrowserActivity : AppCompatActivity() {
             }
         }
         web.setDownloadListener { url, ua, cd, mime, _ -> askDownload(url, ua, cd, mime) }
-        root.addView(web, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+
+        home = buildHome()
+        val content = FrameLayout(this)
+        content.addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        content.addView(home, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        root.addView(content, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+
+        // ---- নিচের বার ----
+        val bottom = LinearLayout(this)
+        bottom.orientation = LinearLayout.HORIZONTAL
+        bottom.gravity = Gravity.CENTER_VERTICAL
+        bottom.setPadding(dp(8), dp(6), dp(8), dp(6))
+        btnBack = iconBtn(R.drawable.ic_prev) { if (web.canGoBack()) web.goBack() }
+        btnFwd = iconBtn(R.drawable.ic_next) { if (web.canGoForward()) web.goForward() }
+        val btnHome = iconBtn(R.drawable.ic_home) { showHome(true) }
+        btnShield = iconBtn(R.drawable.ic_shield) { toggleAdBlock(true) }
+        btnDl = iconBtn(R.drawable.ic_download) { openVideoList() }
+        val btnMore = iconBtn(R.drawable.ic_more) { }
+        btnMore.setOnClickListener { openMenu(btnMore) }
+        dlBadge = TextView(this).apply {
+            textSize = 10f
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = Gravity.CENTER
+            setBackgroundColor(UiKit.accent(this@BrowserActivity))
+            setPadding(dp(5), 0, dp(5), 0)
+            visibility = View.GONE
+        }
+        val dlWrap = FrameLayout(this)
+        dlWrap.addView(btnDl, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        dlWrap.addView(dlBadge, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(16), Gravity.TOP or Gravity.END)
+            .apply { setMargins(0, dp(2), dp(4), 0) })
+        for (v in listOf<View>(btnBack, btnFwd, btnHome, btnShield, dlWrap, btnMore)) {
+            bottom.addView(v, LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(dp(2), 0, dp(2), 0) })
+        }
+        root.addView(bottom)
 
         val frame = FrameLayout(this)
         frame.addView(root)
@@ -145,23 +223,286 @@ class BrowserActivity : AppCompatActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (web.canGoBack()) web.goBack() else finish()
+                when {
+                    home.visibility == View.VISIBLE -> finish()
+                    web.canGoBack() -> web.goBack()
+                    else -> showHome(true)
+                }
             }
         })
 
-        if (savedInstanceState != null) web.restoreState(savedInstanceState)
-        else go("https://www.google.com")
+        updateShield()
+        updateNav()
+        updateDl()
+        val restored = savedInstanceState?.let { web.restoreState(it) }
+        if (restored != null && web.url != null) showHome(false) else showHome(true)
+    }
+
+    // ---------- হোমপেজ (অ্যাপের UI-তে) ----------
+    private fun buildHome(): View {
+        val sv = ScrollView(this)
+        sv.isFillViewport = true
+        val col = LinearLayout(this)
+        col.orientation = LinearLayout.VERTICAL
+        col.gravity = Gravity.CENTER_HORIZONTAL
+        col.setPadding(dp(18), dp(48), dp(18), dp(24))
+
+        val logo = TextView(this).apply {
+            text = "Google"
+            textSize = 48f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            letterSpacing = -0.03f
+            setTextColor(UiKit.textColor(this@BrowserActivity))
+            gravity = Gravity.CENTER
+        }
+        col.addView(logo, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { bottomMargin = dp(28) })
+
+        // সার্চ বার: সার্চ আইকন + লেখা + মাইক + লেন্স
+        val bar = LinearLayout(this)
+        bar.orientation = LinearLayout.HORIZONTAL
+        bar.gravity = Gravity.CENTER_VERTICAL
+        bar.setBackgroundResource(R.drawable.bg_tab)
+        bar.setPadding(dp(20), 0, dp(12), 0)
+        val sIcon = ImageView(this).apply {
+            setImageResource(R.drawable.ic_search)
+            setColorFilter(UiKit.accent(this@BrowserActivity))
+        }
+        bar.addView(sIcon, LinearLayout.LayoutParams(dp(24), dp(24)))
+        val hint = TextView(this).apply {
+            text = getString(R.string.br_home_hint)
+            textSize = 14f
+            setTextColor(0x99888888.toInt())
+            setPadding(dp(12), 0, dp(8), 0)
+            setSingleLine()
+        }
+        bar.addView(hint, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val mic = iconBtn(R.drawable.ic_mic) { startVoice() }.apply { setBackgroundResource(0) }
+        val lens = iconBtn(R.drawable.ic_lens) { go("https://lens.google.com/") }.apply { setBackgroundResource(0) }
+        bar.addView(mic)
+        bar.addView(lens)
+        bar.setOnClickListener { focusUrl() }
+        col.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58)))
+
+        // AI Mode + Incognito
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        val ai = pill(R.drawable.ic_ai, getString(R.string.br_ai_mode)) { go("https://www.google.com/search?udm=50") }
+        incognitoPill = pill(R.drawable.ic_incognito, getString(R.string.br_incognito)) { setIncognito(!incognito) }
+        incognitoLabel = incognitoPill.getChildAt(1) as TextView
+        row.addView(ai, LinearLayout.LayoutParams(0, dp(50), 1f).apply { setMargins(0, 0, dp(6), 0) })
+        row.addView(incognitoPill, LinearLayout.LayoutParams(0, dp(50), 1f).apply { setMargins(dp(6), 0, 0, 0) })
+        col.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { topMargin = dp(14) })
+
+        sv.addView(col)
+        return sv
+    }
+
+    private fun pill(icon: Int, label: String, action: () -> Unit): LinearLayout {
+        val p = LinearLayout(this)
+        p.orientation = LinearLayout.HORIZONTAL
+        p.gravity = Gravity.CENTER
+        p.setBackgroundResource(R.drawable.bg_tab)
+        val i = ImageView(this).apply {
+            setImageResource(icon)
+            setColorFilter(UiKit.textColor(this@BrowserActivity))
+        }
+        p.addView(i, LinearLayout.LayoutParams(dp(22), dp(22)))
+        val t = TextView(this).apply {
+            text = label
+            textSize = 14f
+            setTextColor(UiKit.textColor(this@BrowserActivity))
+            setPadding(dp(10), 0, 0, 0)
+        }
+        p.addView(t)
+        p.setOnClickListener { action() }
+        return p
+    }
+
+    private fun showHome(show: Boolean) {
+        home.visibility = if (show) View.VISIBLE else View.GONE
+        web.visibility = if (show) View.GONE else View.VISIBLE
+        if (show) {
+            urlBar.setText("")
+            progress.visibility = View.GONE
+        }
+        updateNav()
+    }
+
+    private fun focusUrl() {
+        urlBar.requestFocus()
+        (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+            .showSoftInput(urlBar, 0)
+    }
+
+    private fun startVoice() {
+        try {
+            voiceLauncher.launch(
+                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                    .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    .putExtra(RecognizerIntent.EXTRA_PROMPT, getString(R.string.br_voice_prompt))
+            )
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, R.string.br_voice_missing, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun iconBtn(icon: Int, action: () -> Unit) = ImageView(this).apply {
-        layoutParams = LinearLayout.LayoutParams(UiKit.dp(this@BrowserActivity, 38), UiKit.dp(this@BrowserActivity, 38))
-            .apply { setMargins(UiKit.dp(this@BrowserActivity, 2), 0, UiKit.dp(this@BrowserActivity, 2), 0) }
-        setPadding(UiKit.dp(this@BrowserActivity, 8), UiKit.dp(this@BrowserActivity, 8),
-            UiKit.dp(this@BrowserActivity, 8), UiKit.dp(this@BrowserActivity, 8))
+        layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply { setMargins(dp(2), 0, dp(2), 0) }
+        setPadding(dp(8), dp(8), dp(8), dp(8))
         setImageResource(icon)
         setColorFilter(UiKit.textColor(this@BrowserActivity))
         setBackgroundResource(R.drawable.bg_icon_box)
         setOnClickListener { action() }
+    }
+
+    // ---------- মেনু ----------
+    private fun openMenu(anchor: View) {
+        val items = listOf(
+            1 to (if (adOn()) R.string.br_adblock_on else R.string.br_adblock_off),
+            2 to (if (themeOn()) R.string.br_theme_on else R.string.br_theme_off),
+            3 to (if (incognito) R.string.br_incognito_on else R.string.br_incognito_off),
+            4 to R.string.br_videos
+        )
+        UiKit.borderedMenu(this, anchor, items) { id ->
+            when (id) {
+                1 -> toggleAdBlock(false)
+                2 -> toggleTheme()
+                3 -> setIncognito(!incognito)
+                4 -> openVideoList()
+            }
+        }
+    }
+
+    // ---------- অ্যাড ব্লক ----------
+    private fun toggleAdBlock(showCount: Boolean) {
+        val now = !adOn()
+        AppSettings.prefs(this).edit().putBoolean("adblock", now).apply()
+        updateShield()
+        if (showCount) {
+            val msg = if (now) getString(R.string.br_blocked_fmt, blocked) else getString(R.string.br_adblock_off)
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, if (now) R.string.br_adblock_on else R.string.br_adblock_off, Toast.LENGTH_SHORT).show()
+        }
+        if (web.visibility == View.VISIBLE) web.reload()
+    }
+
+    private fun updateShield() {
+        val on = adOn()
+        btnShield.setColorFilter(if (on) UiKit.accent(this) else UiKit.textColor(this))
+        btnShield.alpha = if (on) 1f else 0.5f
+    }
+
+    // ---------- সব সাইটে অ্যাপের থিম ----------
+    private fun toggleTheme() {
+        val now = !themeOn()
+        AppSettings.prefs(this).edit().putBoolean("force_theme", now).apply()
+        Toast.makeText(this, if (now) R.string.br_theme_on else R.string.br_theme_off, Toast.LENGTH_SHORT).show()
+        if (web.visibility == View.VISIBLE) web.reload()
+    }
+
+    private fun hex(c: Int) = String.format("#%06X", c and 0xFFFFFF)
+
+    private fun themeCss(): String {
+        val bg = ContextCompat.getColor(this, R.color.bg)
+        val alt = ContextCompat.getColor(this, R.color.surface_alt)
+        val div = ContextCompat.getColor(this, R.color.divider)
+        val text = UiKit.textColor(this)
+        val acc = UiKit.accent(this)
+        val dark = ColorUtils.calculateLuminance(bg) < 0.5
+        return ":root{color-scheme:${if (dark) "dark" else "light"} !important}" +
+            "html,body{background:${hex(bg)} !important;color:${hex(text)} !important}" +
+            "*:not(img):not(video):not(canvas):not(svg):not(path):not(picture):not(iframe){" +
+            "background-color:${hex(bg)} !important;color:${hex(text)} !important;border-color:${hex(div)} !important}" +
+            "input,textarea,select,button{background-color:${hex(alt)} !important;color:${hex(text)} !important;" +
+            "border-color:${hex(div)} !important}" +
+            "a,a *{color:${hex(acc)} !important}" +
+            "::placeholder{color:#8A8F9A !important}"
+    }
+
+    private fun styleJs(id: String, css: String) =
+        "(function(){var s=document.getElementById('$id');if(!s){s=document.createElement('style');" +
+            "s.id='$id';(document.head||document.documentElement).appendChild(s);}" +
+            "s.textContent=${JSONObject.quote(css)};})();"
+
+    private fun injectPage(v: WebView) {
+        if (themeOn()) v.evaluateJavascript(styleJs("hm-theme", themeCss()), null)
+        else v.evaluateJavascript("var s=document.getElementById('hm-theme');if(s)s.remove();", null)
+        if (adOn()) {
+            v.evaluateJavascript(styleJs("hm-adhide", AD_HIDE_CSS), null)
+            val host = Uri.parse(v.url ?: "").host ?: ""
+            if (host.contains("youtube.com")) v.evaluateJavascript(YT_SKIP_JS, null)
+        }
+    }
+
+    // ---------- ইনকগনিটো ----------
+    private fun setIncognito(on: Boolean) {
+        incognito = on
+        CookieManager.getInstance().setAcceptCookie(!on)
+        web.settings.cacheMode = if (on) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
+        if (on) web.clearHistory()
+        incognitoLabel.setText(if (on) R.string.br_incognito_on else R.string.br_incognito)
+        incognitoPill.alpha = if (on) 1f else 0.85f
+        Toast.makeText(this, if (on) R.string.br_incognito_on else R.string.br_incognito_off, Toast.LENGTH_SHORT).show()
+    }
+
+    // ---------- ভিডিও ডিটেক্ট + ডাউনলোড ----------
+    private fun isMediaLink(u: String): Boolean {
+        val path = Uri.parse(u).path?.lowercase() ?: return false
+        return mediaExt.any { path.endsWith(it) }
+    }
+
+    private fun isStream(u: String): Boolean {
+        val path = Uri.parse(u).path?.lowercase() ?: return false
+        return path.endsWith(".m3u8") || path.endsWith(".mpd")
+    }
+
+    private fun addFound(u: String) {
+        found.add(u)
+        while (found.size > 25) found.remove(found.first())
+        updateDl()
+    }
+
+    private fun updateDl() {
+        val n = found.size
+        dlBadge.visibility = if (n > 0) View.VISIBLE else View.GONE
+        dlBadge.text = n.toString()
+        btnDl.setColorFilter(if (n > 0) UiKit.accent(this) else UiKit.textColor(this))
+        btnDl.alpha = if (n > 0) 1f else 0.5f
+    }
+
+    private fun openVideoList() {
+        if (web.visibility != View.VISIBLE) {
+            Toast.makeText(this, R.string.br_no_video, Toast.LENGTH_SHORT).show()
+            return
+        }
+        web.evaluateJavascript(SCAN_JS) { res ->
+            try {
+                val s = JSONTokener(res ?: "null").nextValue()
+                if (s is String) s.split("\n").forEach { if (it.startsWith("http")) addFound(it) }
+            } catch (e: Exception) { }
+            showVideoList()
+        }
+    }
+
+    private fun showVideoList() {
+        if (found.isEmpty()) {
+            Toast.makeText(this, R.string.br_no_video, Toast.LENGTH_LONG).show()
+            return
+        }
+        val urls = found.toList().reversed()
+        val labels = urls.map {
+            val name = URLUtil.guessFileName(it, null, null)
+            val host = Uri.parse(it).host ?: ""
+            "$name\n$host"
+        }.toTypedArray()
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.br_videos)
+            .setItems(labels) { _, i -> askMedia(urls[i]) }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
     }
 
     private fun go(input: String) {
@@ -169,10 +510,10 @@ class BrowserActivity : AppCompatActivity() {
         if (t.isEmpty()) return
         val url = when {
             t.startsWith("http://") || t.startsWith("https://") -> t
-            t.contains(" ") || !t.contains(".") ->
-                "https://www.google.com/search?q=" + Uri.encode(t)
+            t.contains(" ") || !t.contains(".") -> "https://www.google.com/search?q=" + Uri.encode(t)
             else -> "https://$t"
         }
+        showHome(false)
         web.loadUrl(url)
         urlBar.clearFocus()
         (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
@@ -180,6 +521,7 @@ class BrowserActivity : AppCompatActivity() {
     }
 
     private fun reloadOrStop() {
+        if (home.visibility == View.VISIBLE) return
         if (progress.visibility == View.VISIBLE) web.stopLoading() else web.reload()
     }
 
@@ -188,16 +530,12 @@ class BrowserActivity : AppCompatActivity() {
         btnFwd.alpha = if (web.canGoForward()) 1f else 0.4f
     }
 
-    private fun isMediaLink(u: String): Boolean {
-        val path = Uri.parse(u).path?.lowercase() ?: return false
-        return videoExt.any { path.endsWith(it) }
-    }
-
-    // সরাসরি ভিডিও/অডিও লিংক: চালান বা ডাউনলোড
+    // সরাসরি ভিডিও/অডিও লিংক: চালান বা ডাউনলোড (স্ট্রিম হলে শুধু চালানো)
     private fun askMedia(url: String) {
-        MaterialAlertDialogBuilder(this)
+        val stream = isStream(url)
+        val b = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.br_video_found)
-            .setMessage(url)
+            .setMessage(if (stream) getString(R.string.br_stream_only) else url)
             .setPositiveButton(R.string.br_play) { _, _ ->
                 startActivity(
                     Intent(this, PlayerActivity::class.java)
@@ -205,11 +543,8 @@ class BrowserActivity : AppCompatActivity() {
                         .putExtra(PlayerActivity.EXTRA_TITLE, URLUtil.guessFileName(url, null, null))
                 )
             }
-            .setNegativeButton(R.string.br_download) { _, _ ->
-                download(url, null, null, null)
-            }
-            .setNeutralButton(R.string.btn_cancel, null)
-            .show()
+        if (!stream) b.setNegativeButton(R.string.br_download) { _, _ -> download(url, null, null, null) }
+        b.setNeutralButton(R.string.btn_cancel, null).show()
     }
 
     private fun askDownload(url: String, ua: String?, cd: String?, mime: String?) {
@@ -232,7 +567,7 @@ class BrowserActivity : AppCompatActivity() {
                 .putExtra(DownloadService.EXTRA_REFERER, web.url)
                 .putExtra(DownloadService.EXTRA_CD, cd)
                 .putExtra(DownloadService.EXTRA_MIME, mime)
-            androidx.core.content.ContextCompat.startForegroundService(this, i)
+            ContextCompat.startForegroundService(this, i)
             Toast.makeText(this, R.string.dl_started, Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, e.message ?: "Error", Toast.LENGTH_LONG).show()
@@ -248,8 +583,63 @@ class BrowserActivity : AppCompatActivity() {
     override fun onResume() { super.onResume(); web.onResume() }
 
     override fun onDestroy() {
+        if (incognito) {
+            web.clearCache(true)
+            web.clearFormData()
+            WebStorage.getInstance().deleteAllData()
+            CookieManager.getInstance().setAcceptCookie(true)
+        }
         (web.parent as? ViewGroup)?.removeView(web)
         web.destroy()
         super.onDestroy()
+    }
+
+    companion object {
+        private const val AD_HIDE_CSS =
+            "ins.adsbygoogle,.adsbygoogle,[id^=\"google_ads\"],[id^=\"div-gpt-ad\"],iframe[src*=\"doubleclick\"]," +
+                "iframe[src*=\"googlesyndication\"],iframe[id^=\"google_ads\"],#tads,#tadsb,#bottomads,[data-text-ad]," +
+                ".ad-banner,.ad-container,.ad-slot,.ads-ad,.video-ads,.ytp-ad-module,ytd-ad-slot-renderer," +
+                "ytd-display-ad-renderer,ytd-promoted-sparkles-web-renderer,#player-ads,.ytp-ad-overlay-container," +
+                "ytm-promoted-video-renderer{display:none !important}"
+
+        private const val YT_SKIP_JS =
+            "if(!window.__hmYt){window.__hmYt=1;setInterval(function(){" +
+                "var p=document.querySelector('.html5-video-player.ad-showing');if(p){" +
+                "var v=document.querySelector('video');if(v&&isFinite(v.duration)){v.currentTime=v.duration;}" +
+                "var b=document.querySelector('.ytp-ad-skip-button,.ytp-skip-ad-button,.ytp-ad-skip-button-modern');" +
+                "if(b)b.click();}},500);}"
+
+        private const val SCAN_JS =
+            "(function(){var o=[];document.querySelectorAll('video,audio,source').forEach(function(e){" +
+                "[e.currentSrc,e.src].forEach(function(u){if(u&&u.indexOf('http')===0&&o.indexOf(u)<0)o.push(u);});});" +
+                "return o.join('\\n');})()"
+    }
+}
+
+// বিজ্ঞাপন/পপআপ নেটওয়ার্কের হোস্ট ও প্যাটার্ন
+private object AdBlock {
+    private val hosts = listOf(
+        "doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.com",
+        "pagead2.googlesyndication.com", "adnxs.com", "taboola.com", "outbrain.com", "popads.net",
+        "popcash.net", "propellerads.com", "exoclick.com", "juicyads.com", "adsterra.com", "mgid.com",
+        "revcontent.com", "amazon-adsystem.com", "moatads.com", "pubmatic.com", "rubiconproject.com",
+        "openx.net", "criteo.com", "criteo.net", "adform.net", "smartadserver.com", "advertising.com",
+        "yieldmo.com", "adcolony.com", "unityads.unity3d.com", "applovin.com", "inmobi.com",
+        "ads-twitter.com", "hotjar.com", "scorecardresearch.com", "2mdn.net", "adsrvr.org", "bidswitch.net",
+        "casalemedia.com", "contextweb.com", "lijit.com", "sharethrough.com", "teads.tv", "zedo.com",
+        "clickadu.com", "hilltopads.net", "trafficjunky.net", "onclickads.net", "a-ads.com"
+    )
+    private val parts = listOf(
+        "/pagead/", "/adserver", "/ads/", "/adsbygoogle", "popunder", "/prebid", "/banner_ads", "/adframe"
+    )
+
+    fun isAd(url: String): Boolean {
+        val u = Uri.parse(url)
+        val host = (u.host ?: return false).lowercase()
+        if (hosts.any { host == it || host.endsWith(".$it") }) return true
+        if (host.startsWith("ads.") || host.contains(".ads.") || host.startsWith("adserver") ||
+            host.contains("adservice")) return true
+        val low = url.lowercase()
+        return parts.any { low.contains(it) }
     }
 }
