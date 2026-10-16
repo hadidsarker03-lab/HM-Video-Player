@@ -20,6 +20,8 @@
         <item name="hmBg">@color/bg</item>
         <item name="hmText">@color/text_primary</item>
         <item name="hmTextSecondary">@color/text_secondary</item>
+        <item name="hmBoxText">?attr/hmText</item>
+        <item name="hmBoxTextSecondary">?attr/hmTextSecondary</item>
         <item name="hmSurface">@color/surface</item>
         <item name="hmSurfaceAlt">@color/surface_alt</item>
         <item name="hmDivider">@color/divider</item>
@@ -113,5 +115,29 @@
         <item name="hmTextSecondary">#B3FFFFFF</item>
         <item name="colorOnSurface">#FFFFFF</item>
         <item name="colorOnSecondaryContainer">#FFFFFF</item>
+    </style>
+    <style name="BoxText_Blue">
+        <item name="hmBoxText">#2D8CFF</item>
+        <item name="hmBoxTextSecondary">#B32D8CFF</item>
+    </style>
+    <style name="BoxText_Pink">
+        <item name="hmBoxText">#D946C8</item>
+        <item name="hmBoxTextSecondary">#B3D946C8</item>
+    </style>
+    <style name="BoxText_Orange">
+        <item name="hmBoxText">#FF7A3D</item>
+        <item name="hmBoxTextSecondary">#B3FF7A3D</item>
+    </style>
+    <style name="BoxText_Purple">
+        <item name="hmBoxText">#8B5CF6</item>
+        <item name="hmBoxTextSecondary">#B38B5CF6</item>
+    </style>
+    <style name="BoxText_Red">
+        <item name="hmBoxText">#EF4444</item>
+        <item name="hmBoxTextSecondary">#B3EF4444</item>
+    </style>
+    <style name="BoxText_White">
+        <item name="hmBoxText">#FFFFFF</item>
+        <item name="hmBoxTextSecondary">#B3FFFFFF</item>
     </style>
 </resources>

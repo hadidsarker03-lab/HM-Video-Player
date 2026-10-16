@@ -8,4 +8,6 @@
     <attr name="hmNeuDark" format="color" />
     <attr name="hmText" format="color" />
     <attr name="hmTextSecondary" format="color" />
+    <attr name="hmBoxText" format="color" />
+    <attr name="hmBoxTextSecondary" format="color" />
 </resources>

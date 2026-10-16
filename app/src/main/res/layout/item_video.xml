@@ -110,7 +110,7 @@
                     android:layout_height="14dp"
                     android:importantForAccessibility="no"
                     android:src="@drawable/ic_folder"
-                    android:tint="?attr/hmTextSecondary" />
+                    android:tint="?attr/hmBoxTextSecondary" />
 
                 <TextView
                     android:id="@+id/folderName"
@@ -120,7 +120,7 @@
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:maxWidth="110dp"
-                    android:textColor="?attr/hmTextSecondary"
+                    android:textColor="?attr/hmBoxTextSecondary"
                     android:textSize="12sp" />
             </LinearLayout>
 

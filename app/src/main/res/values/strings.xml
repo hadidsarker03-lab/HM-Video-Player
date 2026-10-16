@@ -307,8 +307,8 @@
     <string name="dl_failed">Download failed</string>
     <string name="dl_cancel">Cancel</string>
     <string name="dl_channel">Downloads</string>
-    <string name="br_home_hint">Search Google or type URL</string>
-    <string name="br_ai_mode">AI Mode</string>
+    <string name="br_home_hint">Search Brave or type URL</string>
+    <string name="br_ai_mode">News</string>
     <string name="br_incognito">Incognito</string>
     <string name="br_incognito_on">Incognito: On</string>
     <string name="br_incognito_off">Incognito: Off</string>
@@ -322,4 +322,18 @@
     <string name="br_blocked_fmt">%1$d ads/trackers blocked</string>
     <string name="br_voice_prompt">Speak to search</string>
     <string name="br_voice_missing">Voice search is not available on this device</string>
+    <string name="theme_text_outside">Text color (outside boxes)</string>
+    <string name="theme_text_inside">Text and icon color (inside boxes)</string>
+    <string name="theme_depth">Pressed-in depth of selected tab</string>
+    <string name="br_default_on">Brave app as default browser: On</string>
+    <string name="br_default_off">Brave app as default browser: Off</string>
+    <string name="br_open_brave">Open in Brave app</string>
+    <string name="br_brave_missing">Brave is not installed, using the built-in browser</string>
+    <string name="br_shields_title_fmt">Shields: %1$d blocked</string>
+    <string name="br_shield_ads">Block ads and trackers</string>
+    <string name="br_shield_https">Upgrade connections to HTTPS</string>
+    <string name="br_shield_cookies">Block third-party cookies</string>
+    <string name="br_shield_fp">Block fingerprinting</string>
+    <string name="br_shield_cookie_notice">Hide cookie notices</string>
+    <string name="br_shield_apply">Apply</string>
 </resources>

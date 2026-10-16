@@ -69,10 +69,32 @@ object AppSettings {
         prefs(c).edit().putInt("text_color", i).apply()
     }
 
+    // বক্সের ভিতরের লেখা/আইকনের আলাদা রং: 0 = বাইরের লেখার মতোই
+    val boxTextStyles = intArrayOf(
+        0, R.style.BoxText_Blue, R.style.BoxText_Pink, R.style.BoxText_Orange,
+        R.style.BoxText_Purple, R.style.BoxText_Red, R.style.BoxText_White
+    )
+
+    fun boxTextIndex(c: Context): Int =
+        prefs(c).getInt("box_text_color", 0).coerceIn(0, boxTextStyles.size - 1)
+
+    fun setBoxTextIndex(c: Context, i: Int) {
+        prefs(c).edit().putInt("box_text_color", i).apply()
+    }
+
+    // নির্বাচিত ট্যাব কতটা ডেবে থাকবে (০-১০০)
+    fun depth(c: Context): Float = prefs(c).getInt("sunk_depth", 80).coerceIn(0, 100) / 100f
+
+    fun setDepth(c: Context, v: Int) {
+        prefs(c).edit().putInt("sunk_depth", v.coerceIn(0, 100)).apply()
+    }
+
     fun applyTheme(act: android.app.Activity) {
         act.setTheme(themeRes(act))
         val st = textStyles[textIndex(act)]
         if (st != 0) act.theme.applyStyle(st, true)
+        val bst = boxTextStyles[boxTextIndex(act)]
+        if (bst != 0) act.theme.applyStyle(bst, true)
         // সাধারণ মোডে ছবি ব্যাকগ্রাউন্ড বাছা থাকলে পেজের সমতল রং স্বচ্ছ করে
         if (!glass(act) && Backgrounds.hasWallpaper(act) && act !is PlayerActivity) {
             act.theme.applyStyle(R.style.WallpaperOverlay, true)

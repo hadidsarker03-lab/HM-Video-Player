@@ -565,7 +565,12 @@ class MainActivity : MediaActivity() {
             MeCell(R.drawable.ic_palette, R.string.settings_theme) { UiKit.chooseTheme(this) },
             MeCell(R.drawable.ic_language, R.string.settings_language) { UiKit.chooseLanguage(this) },
             MeCell(R.drawable.ic_browser, R.string.me_browser) {
-                startActivity(android.content.Intent(this, BrowserActivity::class.java))
+                if (!(Brave.preferred(this) && Brave.open(this, null))) {
+                    if (Brave.preferred(this)) {
+                        android.widget.Toast.makeText(this, R.string.br_brave_missing, android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                    startActivity(android.content.Intent(this, BrowserActivity::class.java))
+                }
             }
         )
         cells.chunked(3).forEach { chunk ->

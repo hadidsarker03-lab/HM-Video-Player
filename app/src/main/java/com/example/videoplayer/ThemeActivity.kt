@@ -126,6 +126,17 @@ class ThemeActivity : AppCompatActivity() {
 
         root.addView(backgroundStrip(accent, fg))
 
+        fun sectionTitle(res: Int): TextView {
+            val t = TextView(this)
+            t.setText(res)
+            t.setTextColor(fg)
+            t.textSize = 16f
+            t.setTypeface(t.typeface, android.graphics.Typeface.BOLD)
+            t.setPadding(dp(20), dp(12), dp(20), dp(4))
+            return t
+        }
+        root.addView(sectionTitle(R.string.theme_text_outside))
+
         // অ্যাকসেন্ট রঙের বৃত্ত
         val colorScroll = HorizontalScrollView(this)
         colorScroll.isHorizontalScrollBarEnabled = false
@@ -154,6 +165,93 @@ class ThemeActivity : AppCompatActivity() {
         }
         colorScroll.addView(colorRow)
         root.addView(colorScroll)
+
+        // ---- বক্সের ভিতরের লেখা ও আইকনের আলাদা রং ----
+        root.addView(sectionTitle(R.string.theme_text_inside))
+        val insideScroll = HorizontalScrollView(this)
+        insideScroll.isHorizontalScrollBarEnabled = false
+        val insideRow = LinearLayout(this)
+        insideRow.orientation = LinearLayout.HORIZONTAL
+        insideRow.gravity = Gravity.CENTER_VERTICAL
+        insideRow.setPadding(dp(20), dp(10), dp(20), dp(16))
+        for (i in AppSettings.boxTextStyles.indices) {
+            val sel = AppSettings.boxTextIndex(this) == i
+            val circle: View
+            if (i == 0) {
+                val tv = TextView(this)
+                tv.text = "="
+                tv.textSize = 22f
+                tv.gravity = Gravity.CENTER
+                tv.setTextColor(fg)
+                circle = tv
+            } else circle = View(this)
+            circle.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(if (i == 0) Color.TRANSPARENT else AppSettings.textColors[i])
+                setStroke(dp(if (sel) 3 else 1), if (sel) accent else (fg and 0x00FFFFFF) or 0x55000000)
+            }
+            circle.setOnClickListener {
+                if (AppSettings.boxTextIndex(this) != i) {
+                    AppSettings.setBoxTextIndex(this, i)
+                    recreate()
+                }
+            }
+            val lp = LinearLayout.LayoutParams(dp(48), dp(48))
+            lp.marginEnd = dp(14)
+            insideRow.addView(circle, lp)
+        }
+        insideScroll.addView(insideRow)
+        root.addView(insideScroll)
+
+        // ---- নির্বাচিত ট্যাব কতটা ডেবে থাকবে ----
+        root.addView(sectionTitle(R.string.theme_depth))
+        val depthBox = LinearLayout(this)
+        depthBox.orientation = LinearLayout.VERTICAL
+        depthBox.setPadding(dp(20), dp(4), dp(20), dp(12))
+        val preview = View(this)
+        preview.background = SunkenDrawable(this)
+        depthBox.addView(preview, LinearLayout.LayoutParams(dp(190), dp(54)).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            topMargin = dp(6)
+            bottomMargin = dp(10)
+        })
+        val pct = TextView(this)
+        pct.setTextColor(fg)
+        pct.textSize = 14f
+        pct.gravity = Gravity.CENTER
+        val seek = android.widget.SeekBar(this)
+        seek.max = 100
+        seek.progress = (AppSettings.depth(this) * 100).toInt()
+        seek.progressTintList = android.content.res.ColorStateList.valueOf(accent)
+        seek.thumbTintList = android.content.res.ColorStateList.valueOf(accent)
+        pct.text = "${seek.progress}%"
+        seek.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: android.widget.SeekBar?, p: Int, fromUser: Boolean) {
+                AppSettings.setDepth(this@ThemeActivity, p)
+                pct.text = "$p%"
+                preview.invalidate()
+            }
+            override fun onStartTrackingTouch(sb: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(sb: android.widget.SeekBar?) {}
+        })
+        depthBox.addView(seek)
+        depthBox.addView(pct)
+        root.addView(depthBox)
+
+        // ---- ব্রাউজার: ব্রেভ অ্যাপ ডিফল্ট ----
+        val braveRow = TextView(this)
+        fun braveText() = getString(
+            if (Brave.preferred(this)) R.string.br_default_on else R.string.br_default_off
+        )
+        braveRow.text = braveText()
+        braveRow.setTextColor(fg)
+        braveRow.textSize = 15f
+        braveRow.setPadding(dp(20), dp(12), dp(20), dp(28))
+        braveRow.setOnClickListener {
+            AppSettings.prefs(this).edit().putBoolean("brave_default", !Brave.preferred(this)).apply()
+            braveRow.text = braveText()
+        }
+        root.addView(braveRow)
 
         val page = ScrollView(this)
         page.isFillViewport = true

@@ -17,6 +17,7 @@ import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -60,6 +61,8 @@ class BrowserActivity : AppCompatActivity() {
     private var incognito = false
     private var blocked = 0
     private val found = LinkedHashSet<String>()
+    private var upgradedHost: String? = null
+    private val noUpgrade = HashSet<String>()
 
     private val mediaExt = listOf(".mp4", ".mkv", ".webm", ".m3u8", ".3gp", ".mov", ".avi", ".mp3", ".m4a", ".mpd")
 
@@ -92,7 +95,7 @@ class BrowserActivity : AppCompatActivity() {
             hint = getString(R.string.br_hint)
             setSingleLine()
             textSize = 14f
-            setTextColor(UiKit.textColor(this@BrowserActivity))
+            setTextColor(UiKit.boxTextColor(this@BrowserActivity))
             setHintTextColor(0x88888888.toInt())
             setBackgroundResource(R.drawable.bg_tab)
             setPadding(dp(16), dp(10), dp(16), dp(10))
@@ -133,6 +136,7 @@ class BrowserActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }
         CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(web, AppSettings.prefs(this).getBoolean("cookies_3p", true))
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest): WebResourceResponse? {
                 val u = r.url.toString()
@@ -151,6 +155,10 @@ class BrowserActivity : AppCompatActivity() {
                     return true
                 }
                 if (adOn() && AdBlock.isAd(u)) { blocked++; return true }
+                if (r.isForMainFrame && u.startsWith("http://")) {
+                    val up = upgrade(u)
+                    if (up != u) { v.loadUrl(up); return true }
+                }
                 if (isMediaLink(u)) { askMedia(u); return true }
                 return false
             }
@@ -169,6 +177,15 @@ class BrowserActivity : AppCompatActivity() {
                 progress.visibility = View.GONE
                 updateNav()
                 injectPage(v)
+            }
+
+            override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
+                val h = r.url.host
+                if (r.isForMainFrame && r.url.scheme == "https" && h != null && h == upgradedHost) {
+                    noUpgrade.add(h)
+                    upgradedHost = null
+                    v.loadUrl(r.url.toString().replaceFirst("https://", "http://"))
+                }
             }
         }
         web.webChromeClient = object : WebChromeClient() {
@@ -193,7 +210,7 @@ class BrowserActivity : AppCompatActivity() {
         btnBack = iconBtn(R.drawable.ic_prev) { if (web.canGoBack()) web.goBack() }
         btnFwd = iconBtn(R.drawable.ic_next) { if (web.canGoForward()) web.goForward() }
         val btnHome = iconBtn(R.drawable.ic_home) { showHome(true) }
-        btnShield = iconBtn(R.drawable.ic_shield) { toggleAdBlock(true) }
+        btnShield = iconBtn(R.drawable.ic_shield) { openShields() }
         btnDl = iconBtn(R.drawable.ic_download) { openVideoList() }
         val btnMore = iconBtn(R.drawable.ic_more) { }
         btnMore.setOnClickListener { openMenu(btnMore) }
@@ -248,7 +265,7 @@ class BrowserActivity : AppCompatActivity() {
         col.setPadding(dp(18), dp(48), dp(18), dp(24))
 
         val logo = TextView(this).apply {
-            text = "Google"
+            text = "Brave"
             textSize = 48f
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             letterSpacing = -0.03f
@@ -278,7 +295,7 @@ class BrowserActivity : AppCompatActivity() {
         }
         bar.addView(hint, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val mic = iconBtn(R.drawable.ic_mic) { startVoice() }.apply { setBackgroundResource(0) }
-        val lens = iconBtn(R.drawable.ic_lens) { go("https://lens.google.com/") }.apply { setBackgroundResource(0) }
+        val lens = iconBtn(R.drawable.ic_lens) { go("https://search.brave.com/images") }.apply { setBackgroundResource(0) }
         bar.addView(mic)
         bar.addView(lens)
         bar.setOnClickListener { focusUrl() }
@@ -287,7 +304,7 @@ class BrowserActivity : AppCompatActivity() {
         // AI Mode + Incognito
         val row = LinearLayout(this)
         row.orientation = LinearLayout.HORIZONTAL
-        val ai = pill(R.drawable.ic_ai, getString(R.string.br_ai_mode)) { go("https://www.google.com/search?udm=50") }
+        val ai = pill(R.drawable.ic_ai, getString(R.string.br_ai_mode)) { go("https://search.brave.com/news") }
         incognitoPill = pill(R.drawable.ic_incognito, getString(R.string.br_incognito)) { setIncognito(!incognito) }
         incognitoLabel = incognitoPill.getChildAt(1) as TextView
         row.addView(ai, LinearLayout.LayoutParams(0, dp(50), 1f).apply { setMargins(0, 0, dp(6), 0) })
@@ -306,13 +323,13 @@ class BrowserActivity : AppCompatActivity() {
         p.setBackgroundResource(R.drawable.bg_tab)
         val i = ImageView(this).apply {
             setImageResource(icon)
-            setColorFilter(UiKit.textColor(this@BrowserActivity))
+            setColorFilter(UiKit.boxTextColor(this@BrowserActivity))
         }
         p.addView(i, LinearLayout.LayoutParams(dp(22), dp(22)))
         val t = TextView(this).apply {
             text = label
             textSize = 14f
-            setTextColor(UiKit.textColor(this@BrowserActivity))
+            setTextColor(UiKit.boxTextColor(this@BrowserActivity))
             setPadding(dp(10), 0, 0, 0)
         }
         p.addView(t)
@@ -352,7 +369,7 @@ class BrowserActivity : AppCompatActivity() {
         layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply { setMargins(dp(2), 0, dp(2), 0) }
         setPadding(dp(8), dp(8), dp(8), dp(8))
         setImageResource(icon)
-        setColorFilter(UiKit.textColor(this@BrowserActivity))
+        setColorFilter(UiKit.boxTextColor(this@BrowserActivity))
         setBackgroundResource(R.drawable.bg_icon_box)
         setOnClickListener { action() }
     }
@@ -363,7 +380,8 @@ class BrowserActivity : AppCompatActivity() {
             1 to (if (adOn()) R.string.br_adblock_on else R.string.br_adblock_off),
             2 to (if (themeOn()) R.string.br_theme_on else R.string.br_theme_off),
             3 to (if (incognito) R.string.br_incognito_on else R.string.br_incognito_off),
-            4 to R.string.br_videos
+            4 to R.string.br_videos,
+            5 to R.string.br_open_brave
         )
         UiKit.borderedMenu(this, anchor, items) { id ->
             when (id) {
@@ -371,8 +389,39 @@ class BrowserActivity : AppCompatActivity() {
                 2 -> toggleTheme()
                 3 -> setIncognito(!incognito)
                 4 -> openVideoList()
+                5 -> openInBrave()
             }
         }
+    }
+
+    // ---------- Brave Shields প্যানেল ----------
+    private fun openShields() {
+        val keys = listOf("adblock", "https_up", "cookies_3p", "fp", "cookie_notice")
+        val labels = arrayOf(
+            getString(R.string.br_shield_ads), getString(R.string.br_shield_https),
+            getString(R.string.br_shield_cookies), getString(R.string.br_shield_fp),
+            getString(R.string.br_shield_cookie_notice)
+        )
+        val p = AppSettings.prefs(this)
+        val checked = BooleanArray(keys.size) { p.getBoolean(keys[it], true) }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.br_shields_title_fmt, blocked))
+            .setMultiChoiceItems(labels, checked) { _, i, on -> checked[i] = on }
+            .setPositiveButton(R.string.br_shield_apply) { _, _ ->
+                val e = p.edit()
+                keys.forEachIndexed { i, k -> e.putBoolean(k, checked[i]) }
+                e.apply()
+                CookieManager.getInstance().setAcceptThirdPartyCookies(web, checked[2])
+                updateShield()
+                if (web.visibility == View.VISIBLE) web.reload()
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    private fun openInBrave() {
+        val u = if (web.visibility == View.VISIBLE) web.url else null
+        if (!Brave.open(this, u)) Toast.makeText(this, R.string.br_brave_missing, Toast.LENGTH_LONG).show()
     }
 
     // ---------- অ্যাড ব্লক ----------
@@ -391,7 +440,7 @@ class BrowserActivity : AppCompatActivity() {
 
     private fun updateShield() {
         val on = adOn()
-        btnShield.setColorFilter(if (on) UiKit.accent(this) else UiKit.textColor(this))
+        btnShield.setColorFilter(if (on) UiKit.accent(this) else UiKit.boxTextColor(this))
         btnShield.alpha = if (on) 1f else 0.5f
     }
 
@@ -428,6 +477,9 @@ class BrowserActivity : AppCompatActivity() {
             "s.textContent=${JSONObject.quote(css)};})();"
 
     private fun injectPage(v: WebView) {
+        val sp = AppSettings.prefs(this)
+        if (sp.getBoolean("fp", true)) v.evaluateJavascript(FP_JS, null)
+        if (sp.getBoolean("cookie_notice", true)) v.evaluateJavascript(styleJs("hm-cookie", COOKIE_CSS), null)
         if (themeOn()) v.evaluateJavascript(styleJs("hm-theme", themeCss()), null)
         else v.evaluateJavascript("var s=document.getElementById('hm-theme');if(s)s.remove();", null)
         if (adOn()) {
@@ -469,7 +521,7 @@ class BrowserActivity : AppCompatActivity() {
         val n = found.size
         dlBadge.visibility = if (n > 0) View.VISIBLE else View.GONE
         dlBadge.text = n.toString()
-        btnDl.setColorFilter(if (n > 0) UiKit.accent(this) else UiKit.textColor(this))
+        btnDl.setColorFilter(if (n > 0) UiKit.accent(this) else UiKit.boxTextColor(this))
         btnDl.alpha = if (n > 0) 1f else 0.5f
     }
 
@@ -510,14 +562,23 @@ class BrowserActivity : AppCompatActivity() {
         if (t.isEmpty()) return
         val url = when {
             t.startsWith("http://") || t.startsWith("https://") -> t
-            t.contains(" ") || !t.contains(".") -> "https://www.google.com/search?q=" + Uri.encode(t)
+            t.contains(" ") || !t.contains(".") -> "https://search.brave.com/search?q=" + Uri.encode(t)
             else -> "https://$t"
         }
         showHome(false)
-        web.loadUrl(url)
+        web.loadUrl(upgrade(url), mapOf("Sec-GPC" to "1", "DNT" to "1"))
         urlBar.clearFocus()
         (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
             .hideSoftInputFromWindow(urlBar.windowToken, 0)
+    }
+
+    // Brave Shields: http লিংক https-এ আপগ্রেড (না চললে http-তে ফিরে যায়)
+    private fun upgrade(url: String): String {
+        if (!AppSettings.prefs(this).getBoolean("https_up", true) || !url.startsWith("http://")) return url
+        val host = Uri.parse(url).host ?: return url
+        if (host in noUpgrade) return url
+        upgradedHost = host
+        return "https://" + url.removePrefix("http://")
     }
 
     private fun reloadOrStop() {
@@ -595,6 +656,24 @@ class BrowserActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val COOKIE_CSS =
+            "#onetrust-banner-sdk,#onetrust-consent-sdk,.cookie-banner,.cookie-consent,#cookie-banner,#cookieConsent," +
+                ".cc-window,.cc-banner,#CybotCookiebotDialog,.fc-consent-root,#didomi-host,.truste_box_overlay," +
+                "[id*=\"cookie-banner\"],[class*=\"cookie-banner\"]{display:none !important}"
+
+        // ফিঙ্গারপ্রিন্টিং কমানো: হার্ডওয়্যার তথ্য স্থির, ব্যাটারি API বন্ধ, ক্যানভাসে সামান্য নয়েজ
+        private val FP_JS = """
+            (function(){try{if(window.__hmFp)return;window.__hmFp=1;
+            var d=function(o,k,v){try{Object.defineProperty(o,k,{get:function(){return v},configurable:true})}catch(e){}};
+            d(navigator,'hardwareConcurrency',4);d(navigator,'deviceMemory',4);d(navigator,'plugins',[]);
+            if(navigator.getBattery){navigator.getBattery=function(){return Promise.reject(new DOMException('Blocked','NotAllowedError'))}}
+            var tdu=HTMLCanvasElement.prototype.toDataURL;
+            HTMLCanvasElement.prototype.toDataURL=function(){try{var c=this.getContext&&this.getContext('2d');
+            if(c&&this.width>0&&this.height>0&&this.width<600){var p=c.getImageData(0,0,1,1);p.data[0]^=1;c.putImageData(p,0,0)}}catch(e){}
+            return tdu.apply(this,arguments)};
+            }catch(e){}})();
+        """.trimIndent()
+
         private const val AD_HIDE_CSS =
             "ins.adsbygoogle,.adsbygoogle,[id^=\"google_ads\"],[id^=\"div-gpt-ad\"],iframe[src*=\"doubleclick\"]," +
                 "iframe[src*=\"googlesyndication\"],iframe[id^=\"google_ads\"],#tads,#tadsb,#bottomads,[data-text-ad]," +
@@ -641,5 +720,27 @@ private object AdBlock {
             host.contains("adservice")) return true
         val low = url.lowercase()
         return parts.any { low.contains(it) }
+    }
+}
+
+
+// ব্রেভ অ্যাপ: ইনস্টল থাকলে সেটাই ডিফল্ট ব্রাউজার (থিম পেজ থেকে বন্ধ করা যায়)
+object Brave {
+    private val packages = listOf("com.brave.browser", "com.brave.browser_beta", "com.brave.browser_nightly")
+
+    fun pkg(c: android.content.Context): String? = packages.firstOrNull {
+        try { c.packageManager.getPackageInfo(it, 0); true } catch (e: Exception) { false }
+    }
+
+    fun preferred(c: android.content.Context): Boolean = AppSettings.prefs(c).getBoolean("brave_default", true)
+
+    fun open(c: android.content.Context, url: String?): Boolean {
+        val p = pkg(c) ?: return false
+        return try {
+            val i = Intent(Intent.ACTION_VIEW, Uri.parse(url ?: "https://search.brave.com")).setPackage(p)
+            if (c !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            c.startActivity(i)
+            true
+        } catch (e: Exception) { false }
     }
 }
