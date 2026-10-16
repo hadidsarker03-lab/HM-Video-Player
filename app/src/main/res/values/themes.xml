@@ -32,6 +32,7 @@
         <item name="hmFur20">@android:color/transparent</item>
         <item name="hmFur22">@android:color/transparent</item>
         <item name="hmFur60">@android:color/transparent</item>
+        <item name="hmFurOn60">@android:color/transparent</item>
     </style>
 
     <!-- ট্রান্সপারেন্ট (গ্লাস) থিম: ওয়ালপেপার দেখা যায়, সিস্টেম বার স্বচ্ছ -->
@@ -54,12 +55,12 @@
 
     <!-- ফার (প্লাশ) থিম: কালো পশমি টেক্সচার, নরম ফোলা বোতাম -->
     <style name="Theme.HMPlayer.Fur">
-        <item name="colorPrimary">#D2D2D8</item>
+        <item name="colorPrimary">#E6E6EA</item>
         <item name="colorOnPrimary">#121214</item>
         <item name="colorSurface">#121213</item>
-        <item name="colorOnSurface">#C9C9CE</item>
+        <item name="colorOnSurface">#E8E8EC</item>
         <item name="colorSecondaryContainer">#1A1A1C</item>
-        <item name="colorOnSecondaryContainer">#C9C9CE</item>
+        <item name="colorOnSecondaryContainer">#E8E8EC</item>
         <item name="colorSurfaceContainer">#161617</item>
         <item name="colorSurfaceContainerHigh">#161617</item>
         <item name="android:colorBackground">#0B0B0C</item>
@@ -69,19 +70,20 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
         <item name="hmBg">@android:color/transparent</item>
-        <item name="hmText">#C4C4CA</item>
-        <item name="hmTextSecondary">#85858C</item>
-        <item name="hmSurface">#141415</item>
-        <item name="hmSurfaceAlt">#161617</item>
-        <item name="hmDivider">#2C2C30</item>
-        <item name="hmNeuLight">#14FFFFFF</item>
-        <item name="hmNeuDark">#D9000000</item>
+        <item name="hmText">#E8E8EC</item>
+        <item name="hmTextSecondary">#9C9CA4</item>
+        <item name="hmSurface">@android:color/transparent</item>
+        <item name="hmSurfaceAlt">@android:color/transparent</item>
+        <item name="hmDivider">@android:color/transparent</item>
+        <item name="hmNeuLight">@android:color/transparent</item>
+        <item name="hmNeuDark">@android:color/transparent</item>
         <item name="hmFur10">@drawable/fur_r10</item>
         <item name="hmFur14">@drawable/fur_r14</item>
         <item name="hmFur16">@drawable/fur_r16</item>
         <item name="hmFur20">@drawable/fur_r20</item>
         <item name="hmFur22">@drawable/fur_r22</item>
         <item name="hmFur60">@drawable/fur_r60</item>
+        <item name="hmFurOn60">@drawable/fur_on60</item>
     </style>
 
     <!-- সাধারণ মোডে ওয়ালপেপার বসালে: পেজের সমতল রং স্বচ্ছ, নিচে ছবি দেখা যায় -->

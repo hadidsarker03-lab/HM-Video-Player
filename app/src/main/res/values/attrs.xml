@@ -14,4 +14,5 @@
     <attr name="hmFur20" format="reference|color" />
     <attr name="hmFur22" format="reference|color" />
     <attr name="hmFur60" format="reference|color" />
+    <attr name="hmFurOn60" format="reference|color" />
 </resources>
