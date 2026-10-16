@@ -27,3 +27,4 @@ BrowserActivity.kt
 CfHttp.kt
 DownloadService.kt
 SlidingTabs.kt
+Fur.kt
