@@ -8,6 +8,10 @@
     <attr name="hmNeuDark" format="color" />
     <attr name="hmText" format="color" />
     <attr name="hmTextSecondary" format="color" />
-    <attr name="hmBoxText" format="color" />
-    <attr name="hmBoxTextSecondary" format="color" />
+    <attr name="hmFur10" format="reference|color" />
+    <attr name="hmFur14" format="reference|color" />
+    <attr name="hmFur16" format="reference|color" />
+    <attr name="hmFur20" format="reference|color" />
+    <attr name="hmFur22" format="reference|color" />
+    <attr name="hmFur60" format="reference|color" />
 </resources>

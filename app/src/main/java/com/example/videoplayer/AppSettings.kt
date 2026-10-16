@@ -32,10 +32,18 @@ object AppSettings {
 
     fun setThemeMode(c: Context, mode: String) {
         prefs(c).edit().putString("theme", mode).apply()
-        AppCompatDelegate.setDefaultNightMode(nightModeFor(mode))
+        AppCompatDelegate.setDefaultNightMode(nightModeFor(mode, c))
     }
 
-    fun nightModeFor(mode: String): Int = when (mode) {
+    // ফার (পশমি) থিম: ডিফল্ট চালু; চালু থাকলে সবসময় ডার্ক
+    fun fur(c: Context): Boolean = prefs(c).getBoolean("fur", true)
+
+    fun setFur(c: Context, on: Boolean) {
+        prefs(c).edit().putBoolean("fur", on).apply()
+        AppCompatDelegate.setDefaultNightMode(nightModeFor(themeMode(c), c))
+    }
+
+    fun nightModeFor(mode: String, c: Context? = null): Int = if (c != null && fur(c)) AppCompatDelegate.MODE_NIGHT_YES else when (mode) {
         "light" -> AppCompatDelegate.MODE_NIGHT_NO
         "dark" -> AppCompatDelegate.MODE_NIGHT_YES
         else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
@@ -49,7 +57,8 @@ object AppSettings {
     }
 
     fun themeRes(c: Context): Int =
-        if (glass(c)) R.style.Theme_HMPlayer_Glass else R.style.Theme_HMPlayer
+        if (fur(c)) R.style.Theme_HMPlayer_Fur
+        else if (glass(c)) R.style.Theme_HMPlayer_Glass else R.style.Theme_HMPlayer
 
     // টেক্সট রং: 0 = ডিফল্ট, বাকিগুলো ওভারলে স্টাইল (শেষেরটা সাদা)
     val textStyles = intArrayOf(
@@ -69,34 +78,12 @@ object AppSettings {
         prefs(c).edit().putInt("text_color", i).apply()
     }
 
-    // বক্সের ভিতরের লেখা/আইকনের আলাদা রং: 0 = বাইরের লেখার মতোই
-    val boxTextStyles = intArrayOf(
-        0, R.style.BoxText_Blue, R.style.BoxText_Pink, R.style.BoxText_Orange,
-        R.style.BoxText_Purple, R.style.BoxText_Red, R.style.BoxText_White
-    )
-
-    fun boxTextIndex(c: Context): Int =
-        prefs(c).getInt("box_text_color", 0).coerceIn(0, boxTextStyles.size - 1)
-
-    fun setBoxTextIndex(c: Context, i: Int) {
-        prefs(c).edit().putInt("box_text_color", i).apply()
-    }
-
-    // নির্বাচিত ট্যাব কতটা ডেবে থাকবে (০-১০০)
-    fun depth(c: Context): Float = prefs(c).getInt("sunk_depth", 80).coerceIn(0, 100) / 100f
-
-    fun setDepth(c: Context, v: Int) {
-        prefs(c).edit().putInt("sunk_depth", v.coerceIn(0, 100)).apply()
-    }
-
     fun applyTheme(act: android.app.Activity) {
         act.setTheme(themeRes(act))
         val st = textStyles[textIndex(act)]
         if (st != 0) act.theme.applyStyle(st, true)
-        val bst = boxTextStyles[boxTextIndex(act)]
-        if (bst != 0) act.theme.applyStyle(bst, true)
         // সাধারণ মোডে ছবি ব্যাকগ্রাউন্ড বাছা থাকলে পেজের সমতল রং স্বচ্ছ করে
-        if (!glass(act) && Backgrounds.hasWallpaper(act) && act !is PlayerActivity) {
+        if (!fur(act) && !glass(act) && Backgrounds.hasWallpaper(act) && act !is PlayerActivity) {
             act.theme.applyStyle(R.style.WallpaperOverlay, true)
         }
     }

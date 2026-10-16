@@ -20,14 +20,18 @@
         <item name="hmBg">@color/bg</item>
         <item name="hmText">@color/text_primary</item>
         <item name="hmTextSecondary">@color/text_secondary</item>
-        <item name="hmBoxText">?attr/hmText</item>
-        <item name="hmBoxTextSecondary">?attr/hmTextSecondary</item>
         <item name="hmSurface">@color/surface</item>
         <item name="hmSurfaceAlt">@color/surface_alt</item>
         <item name="hmDivider">@color/divider</item>
         <item name="hmNeuLight">@color/neu_light</item>
         <item name="hmNeuDark">@color/neu_dark</item>
         <item name="android:windowAnimationStyle">@style/HMWindowAnim</item>
+        <item name="hmFur10">@android:color/transparent</item>
+        <item name="hmFur14">@android:color/transparent</item>
+        <item name="hmFur16">@android:color/transparent</item>
+        <item name="hmFur20">@android:color/transparent</item>
+        <item name="hmFur22">@android:color/transparent</item>
+        <item name="hmFur60">@android:color/transparent</item>
     </style>
 
     <!-- ট্রান্সপারেন্ট (গ্লাস) থিম: ওয়ালপেপার দেখা যায়, সিস্টেম বার স্বচ্ছ -->
@@ -45,6 +49,39 @@
         <item name="hmDivider">@color/glass_divider</item>
         <item name="hmNeuLight">@android:color/transparent</item>
         <item name="hmNeuDark">@android:color/transparent</item>
+    </style>
+
+
+    <!-- ফার (প্লাশ) থিম: কালো পশমি টেক্সচার, নরম ফোলা বোতাম -->
+    <style name="Theme.HMPlayer.Fur">
+        <item name="colorPrimary">#D2D2D8</item>
+        <item name="colorOnPrimary">#121214</item>
+        <item name="colorSurface">#121213</item>
+        <item name="colorOnSurface">#C9C9CE</item>
+        <item name="colorSecondaryContainer">#1A1A1C</item>
+        <item name="colorOnSecondaryContainer">#C9C9CE</item>
+        <item name="colorSurfaceContainer">#161617</item>
+        <item name="colorSurfaceContainerHigh">#161617</item>
+        <item name="android:colorBackground">#0B0B0C</item>
+        <item name="android:windowBackground">#0B0B0C</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="hmBg">@android:color/transparent</item>
+        <item name="hmText">#C4C4CA</item>
+        <item name="hmTextSecondary">#85858C</item>
+        <item name="hmSurface">#141415</item>
+        <item name="hmSurfaceAlt">#161617</item>
+        <item name="hmDivider">#2C2C30</item>
+        <item name="hmNeuLight">#14FFFFFF</item>
+        <item name="hmNeuDark">#D9000000</item>
+        <item name="hmFur10">@drawable/fur_r10</item>
+        <item name="hmFur14">@drawable/fur_r14</item>
+        <item name="hmFur16">@drawable/fur_r16</item>
+        <item name="hmFur20">@drawable/fur_r20</item>
+        <item name="hmFur22">@drawable/fur_r22</item>
+        <item name="hmFur60">@drawable/fur_r60</item>
     </style>
 
     <!-- সাধারণ মোডে ওয়ালপেপার বসালে: পেজের সমতল রং স্বচ্ছ, নিচে ছবি দেখা যায় -->
@@ -115,29 +152,5 @@
         <item name="hmTextSecondary">#B3FFFFFF</item>
         <item name="colorOnSurface">#FFFFFF</item>
         <item name="colorOnSecondaryContainer">#FFFFFF</item>
-    </style>
-    <style name="BoxText_Blue">
-        <item name="hmBoxText">#2D8CFF</item>
-        <item name="hmBoxTextSecondary">#B32D8CFF</item>
-    </style>
-    <style name="BoxText_Pink">
-        <item name="hmBoxText">#D946C8</item>
-        <item name="hmBoxTextSecondary">#B3D946C8</item>
-    </style>
-    <style name="BoxText_Orange">
-        <item name="hmBoxText">#FF7A3D</item>
-        <item name="hmBoxTextSecondary">#B3FF7A3D</item>
-    </style>
-    <style name="BoxText_Purple">
-        <item name="hmBoxText">#8B5CF6</item>
-        <item name="hmBoxTextSecondary">#B38B5CF6</item>
-    </style>
-    <style name="BoxText_Red">
-        <item name="hmBoxText">#EF4444</item>
-        <item name="hmBoxTextSecondary">#B3EF4444</item>
-    </style>
-    <style name="BoxText_White">
-        <item name="hmBoxText">#FFFFFF</item>
-        <item name="hmBoxTextSecondary">#B3FFFFFF</item>
     </style>
 </resources>

@@ -23,4 +23,10 @@
             <corners android:radius="16dp" />
         </shape>
     </item>
+    <item
+        android:left="2dp"
+        android:top="2dp"
+        android:right="2dp"
+        android:bottom="2dp"
+        android:drawable="?attr/hmFur16" />
 </layer-list>

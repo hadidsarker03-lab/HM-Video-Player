@@ -234,11 +234,6 @@ object UiKit {
         androidx.core.content.ContextCompat.getColor(ctx, R.color.text_primary)
     )
 
-    // বক্সের (ট্যাব, বোতাম, চিপ) ভিতরের লেখা/আইকনের রং
-    fun boxTextColor(ctx: Context): Int = com.google.android.material.color.MaterialColors.getColor(
-        ctx, R.attr.hmBoxText, textColor(ctx)
-    )
-
     // বর্তমান থিমের অ্যাকসেন্ট রং
     fun accent(ctx: Context): Int = com.google.android.material.color.MaterialColors.getColor(
         ctx, com.google.android.material.R.attr.colorPrimary,

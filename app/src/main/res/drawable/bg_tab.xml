@@ -19,4 +19,10 @@
             <corners android:radius="60dp" />
         </shape>
     </item>
+    <item
+        android:left="2dp"
+        android:top="2dp"
+        android:right="2dp"
+        android:bottom="2dp"
+        android:drawable="?attr/hmFur60" />
 </layer-list>

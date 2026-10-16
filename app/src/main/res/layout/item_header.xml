@@ -10,5 +10,5 @@
     android:fontFamily="sans-serif-medium"
     android:paddingHorizontal="14dp"
     android:paddingVertical="7dp"
-    android:textColor="?attr/hmBoxTextSecondary"
+    android:textColor="?attr/hmTextSecondary"
     android:textSize="14sp" />

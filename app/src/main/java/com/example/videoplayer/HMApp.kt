@@ -9,7 +9,7 @@ class HMApp : Application() {
     override fun onCreate() {
         super.onCreate()
         AppCompatDelegate.setDefaultNightMode(
-            AppSettings.nightModeFor(AppSettings.themeMode(this))
+            AppSettings.nightModeFor(AppSettings.themeMode(this), this)
         )
         AppSettings.applyLocale(AppSettings.lang(this))
         // প্রতিটি স্ক্রিনের আইকনে প্রেস-অ্যানিমেশন

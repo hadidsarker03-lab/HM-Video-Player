@@ -56,8 +56,8 @@
                     android:importantForAutofill="no"
                     android:inputType="text"
                     android:maxLines="1"
-                    android:textColor="?attr/hmBoxText"
-                    android:textColorHint="?attr/hmBoxTextSecondary"
+                    android:textColor="?attr/hmText"
+                    android:textColorHint="?attr/hmTextSecondary"
                     android:textSize="15sp" />
             </LinearLayout>
         </FrameLayout>
@@ -71,7 +71,7 @@
             android:contentDescription="@string/search_hint"
             android:padding="10dp"
             android:src="@drawable/ic_search"
-            android:tint="?attr/hmBoxText" />
+            android:tint="?attr/hmText" />
     </LinearLayout>
 
     <LinearLayout
@@ -98,7 +98,7 @@
             android:contentDescription="@string/desc_sort"
             android:padding="10dp"
             android:src="@drawable/ic_sort"
-            android:tint="?attr/hmBoxText" />
+            android:tint="?attr/hmText" />
         <ImageView
             android:id="@+id/btnView"
             android:layout_width="44dp"
@@ -108,7 +108,7 @@
             android:contentDescription="@string/desc_view"
             android:padding="10dp"
             android:src="@drawable/ic_view_list"
-            android:tint="?attr/hmBoxText" />
+            android:tint="?attr/hmText" />
     </LinearLayout>
 
     <FrameLayout

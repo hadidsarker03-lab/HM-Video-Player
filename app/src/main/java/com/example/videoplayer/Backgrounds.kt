@@ -36,7 +36,7 @@ object Backgrounds {
     private const val DARK_DEFAULT = "asset:bg_01.jpg"
 
     // এখন ডার্ক মোড চলছে কি (থিম সেটিং অনুযায়ী; সিস্টেম হলে ফোনের সেটিং)
-    fun isDark(ctx: Context): Boolean = when (AppSettings.themeMode(ctx)) {
+    fun isDark(ctx: Context): Boolean = if (AppSettings.fur(ctx)) true else when (AppSettings.themeMode(ctx)) {
         "dark" -> true
         "light" -> false
         else -> (android.content.res.Resources.getSystem().configuration.uiMode and
@@ -191,6 +191,10 @@ object Backgrounds {
     // স্ক্রিনের উইন্ডো ব্যাকগ্রাউন্ড বসায় (সাধারণ ও ট্রান্সপারেন্ট দুই মোডেই, প্লেয়ার বাদে)
     fun apply(act: Activity) {
         if (act is PlayerActivity) return
+        if (AppSettings.fur(act)) {
+            act.window.setBackgroundDrawable(Fur.window(act.resources))
+            return
+        }
         val key = selected(act)
         if (key == NONE) {
             // সিস্টেম ওয়ালপেপার: থিমের নিজের ব্যাকগ্রাউন্ডে ফিরে যায়

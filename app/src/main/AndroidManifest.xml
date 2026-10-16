@@ -19,12 +19,6 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
 
-    <queries>
-        <package android:name="com.brave.browser" />
-        <package android:name="com.brave.browser_beta" />
-        <package android:name="com.brave.browser_nightly" />
-    </queries>
-
     <application
         android:name=".HMApp"
         android:allowBackup="true"
