@@ -1,0 +1,361 @@
+package com.example.videoplayer
+
+import android.app.Activity
+import android.content.Context
+import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.ColorFilter
+import android.graphics.Paint
+import android.graphics.PixelFormat
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
+import android.net.Uri
+import android.util.TypedValue
+import androidx.core.content.ContextCompat
+import java.io.File
+import kotlin.math.max
+
+// ট্রান্সপারেন্ট থিমের নিজের ব্যাকগ্রাউন্ড: অ্যাপের ভেতরের ছবি + নিজের আপলোড
+object Backgrounds {
+    const val NONE = "none"
+    private const val DIR = "backgrounds"
+
+    private var cacheKey: String? = null
+    private var cacheBmp: Bitmap? = null
+
+    // নিজের/ডাউনলোড করা ওয়ালপেপারের ফোল্ডার (অফলাইনে থাকে)
+    fun dir(ctx: Context): File = File(ctx.filesDir, DIR)
+
+    private var assetCache: List<String>? = null
+
+    fun assetKeys(ctx: Context): List<String> {
+        assetCache?.let { return it }
+        // শুধু নতুন ওয়ালপেপার (w01.jpg…); রিপোজিটরিতে পুরনো bg_XX.jpg থেকে গেলেও দেখাবে না
+        val l = (ctx.assets.list(DIR) ?: emptyArray()).filter { Regex("w\\d+\\.jpg").matches(it) }.sorted().map { "asset:$it" }
+        assetCache = l
+        return l
+    }
+
+    // আগের (মুছে ফেলা) অ্যাপের ছবির কী থাকলে সেটা বাতিল ধরা হয়
+    private fun valid(ctx: Context, v: String?): String? {
+        if (v == null) return null
+        if (v.startsWith("asset:") && v !in assetKeys(ctx)) return null
+        return v
+    }
+
+    fun customKeys(ctx: Context): List<String> =
+        (File(ctx.filesDir, DIR).listFiles() ?: emptyArray()).sortedBy { it.name }.map { "file:${it.name}" }
+
+    private val thumbCache = android.util.LruCache<String, Bitmap>(70)
+    private val lightCache = HashMap<String, Boolean>()
+
+    // ছোট থাম্বনেইল (গ্রিড ও প্রিভিউর জন্য), মেমরিতে জমা রাখা হয়
+    fun thumb(ctx: Context, key: String): Bitmap? {
+        thumbCache.get(key)?.let { return it }
+        var bmp: Bitmap? = null
+        if (key.startsWith("asset:")) {
+            try {
+                val o = BitmapFactory.Options()
+                o.inPreferredConfig = Bitmap.Config.RGB_565
+                ctx.assets.open("backgrounds_t/" + key.removePrefix("asset:")).use {
+                    bmp = BitmapFactory.decodeStream(it, null, o)
+                }
+            } catch (e: Exception) { Dbg.w("Backgrounds.thumb", e) }
+        }
+        if (bmp == null) bmp = decode(ctx, key, 300)
+        bmp?.let { thumbCache.put(key, it) }
+        return bmp
+    }
+
+    // ছবি কি হালকা (সাদাটে)? হালকা হলে লেখা গাঢ়, গাঢ় হলে লেখা সাদা
+    fun isLight(ctx: Context, key: String): Boolean {
+        if (key == NONE) return false
+        synchronized(lightCache) { lightCache[key]?.let { return it } }
+        val b = thumb(ctx, key) ?: return false
+        var sum = 0L
+        var n = 0
+        val sx = max(1, b.width / 24)
+        val sy = max(1, b.height / 24)
+        var y = 0
+        while (y < b.height) {
+            var x = 0
+            while (x < b.width) {
+                val p = b.getPixel(x, y)
+                sum += (((p shr 16) and 0xff) * 299 + ((p shr 8) and 0xff) * 587 + (p and 0xff) * 114) / 1000
+                n++
+                x += sx
+            }
+            y += sy
+        }
+        val light = n > 0 && sum / n > 150
+        synchronized(lightCache) { lightCache[key] = light }
+        return light
+    }
+
+    // থিম বাছার তালিকা: ডিফল্ট (সাধারণ মোডে), অ্যাপের ছবি, নিজের ছবি
+    fun themeKeys(ctx: Context): List<String> {
+        val l = ArrayList<String>()
+        if (!AppSettings.glass(ctx)) l.add(NONE)
+        l.addAll(assetKeys(ctx))
+        l.addAll(customKeys(ctx))
+        return l
+    }
+
+    // থিমের নাম
+    fun label(ctx: Context, key: String): String {
+        if (key == NONE) return ctx.getString(R.string.bg_default)
+        if (key.startsWith("asset:")) {
+            val n = key.removePrefix("asset:").filter { it.isDigit() }.toIntOrNull() ?: 0
+            return ctx.getString(R.string.theme_item, n)
+        }
+        return ctx.getString(R.string.theme_mine)
+    }
+
+    // আগের সাদাটে ওয়ালপেপার সরানো হয়েছে (এই কী এখন কোনো ছবির সাথে মেলে না)
+    const val WHITE = "asset:__removed__"
+    // ট্রান্সপারেন্ট মোডে কিছু বাছা না থাকলে প্রথম ছবি
+    private const val DARK_DEFAULT = "asset:w01.jpg"
+
+    // এখন ডার্ক মোড চলছে কি (থিম সেটিং অনুযায়ী; সিস্টেম হলে ফোনের সেটিং)
+    fun isDark(ctx: Context): Boolean = if (AppSettings.fur(ctx)) true else when (AppSettings.themeMode(ctx)) {
+        "dark" -> true
+        "light" -> false
+        else -> (android.content.res.Resources.getSystem().configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+    }
+
+    private fun selKey(dark: Boolean) = if (dark) "bg_sel_dark" else "bg_sel_light"
+
+    // লাইট ও ডার্ক মোডের ওয়ালপেপার আলাদা আলাদা মনে রাখা হয়; মোড বদলালে নিজে থেকেই সেটা আসে
+    fun selected(ctx: Context): String {
+        val dark = isDark(ctx)
+        val v = valid(ctx, AppSettings.prefs(ctx).getString(selKey(dark), null))
+        val glass = AppSettings.glass(ctx)
+        if (dark) {
+            val d = if (v == null || v == WHITE) NONE else v
+            // ট্রান্সপারেন্টে "ডিফল্ট" ঘর নেই: কিছু না বাছা থাকলে প্রথম ছবি
+            return if (glass && d == NONE) DARK_DEFAULT else d
+        }
+        val l = v ?: NONE
+        return if (glass && l == NONE) DARK_DEFAULT else if (v == null && !glass) NONE else l
+    }
+
+    fun select(ctx: Context, key: String) {
+        val dark = isDark(ctx)
+        if (dark && key == WHITE) return
+        AppSettings.prefs(ctx).edit().putString(selKey(dark), key).apply()
+    }
+
+    // ব্যাকগ্রাউন্ড ব্লার: 0..100 (০ = ঝাপসা নয়)
+    fun blur(ctx: Context): Int = AppSettings.prefs(ctx).getInt("bg_blur", 0).coerceIn(0, 100)
+
+    fun setBlur(ctx: Context, v: Int) {
+        AppSettings.prefs(ctx).edit().putInt("bg_blur", v.coerceIn(0, 100)).apply()
+    }
+
+    // সাধারণ (নন-ট্রান্সপারেন্ট) মোডেও ছবি ব্যাকগ্রাউন্ড হিসেবে বসানো আছে কি
+    fun hasWallpaper(ctx: Context): Boolean = selected(ctx) != NONE
+
+    // ছোট করা ছবিকে স্ট্যাক-ব্লার দিয়ে ঝাপসা করে (সব অ্যান্ড্রয়েড ভার্সনে চলে)
+    private fun blurred(src: Bitmap, level: Int): Bitmap {
+        if (level <= 0) return src
+        val scale = 360f / max(src.width, src.height)
+        val w = max(8, (src.width * scale).toInt())
+        val h = max(8, (src.height * scale).toInt())
+        val small = Bitmap.createScaledBitmap(src, w, h, true).copy(Bitmap.Config.ARGB_8888, true)
+        val radius = max(1, (level * 0.24f).toInt())
+        stackBlur(small, radius)
+        return small
+    }
+
+    // বক্স ব্লার (৩ বার = গাউসিয়ানের কাছাকাছি), রানিং-সাম দিয়ে দ্রুত
+    private fun stackBlur(bmp: Bitmap, radius: Int) {
+        val w = bmp.width
+        val h = bmp.height
+        val pix = IntArray(w * h)
+        bmp.getPixels(pix, 0, w, 0, 0, w, h)
+        val tmp = IntArray(w * h)
+        repeat(3) {
+            boxPass(pix, tmp, w, h, radius, true)
+            boxPass(tmp, pix, w, h, radius, false)
+        }
+        bmp.setPixels(pix, 0, w, 0, 0, w, h)
+    }
+
+    private fun boxPass(src: IntArray, dst: IntArray, w: Int, h: Int, rad: Int, horiz: Boolean) {
+        val len = if (horiz) w else h
+        val lines = if (horiz) h else w
+        val step = if (horiz) 1 else w
+        val win = 2 * rad + 1
+        for (l in 0 until lines) {
+            val base = if (horiz) l * w else l
+            var ra = 0; var ga = 0; var ba = 0
+            for (i in -rad..rad) {
+                val p = src[base + i.coerceIn(0, len - 1) * step]
+                ra += (p shr 16) and 0xff; ga += (p shr 8) and 0xff; ba += p and 0xff
+            }
+            for (i in 0 until len) {
+                dst[base + i * step] =
+                    (0xff shl 24) or ((ra / win) shl 16) or ((ga / win) shl 8) or (ba / win)
+                val add = src[base + (i + rad + 1).coerceAtMost(len - 1) * step]
+                val rem = src[base + (i - rad).coerceAtLeast(0) * step]
+                ra += ((add shr 16) and 0xff) - ((rem shr 16) and 0xff)
+                ga += ((add shr 8) and 0xff) - ((rem shr 8) and 0xff)
+                ba += (add and 0xff) - (rem and 0xff)
+            }
+        }
+    }
+
+    // ছবি পড়ে (বড় হলে ছোট করে)
+    fun decode(ctx: Context, key: String, maxSide: Int): Bitmap? {
+        return try {
+            fun open() = if (key.startsWith("asset:")) {
+                ctx.assets.open("$DIR/${key.removePrefix("asset:")}")
+            } else {
+                File(File(ctx.filesDir, DIR), key.removePrefix("file:")).inputStream()
+            }
+            val o = BitmapFactory.Options()
+            o.inJustDecodeBounds = true
+            open().use { BitmapFactory.decodeStream(it, null, o) }
+            var s = 1
+            while (max(o.outWidth, o.outHeight) / (s * 2) >= maxSide) s *= 2
+            val o2 = BitmapFactory.Options()
+            o2.inSampleSize = s
+            open().use { BitmapFactory.decodeStream(it, null, o2) }
+        } catch (e: Exception) {
+            Dbg.w("Backgrounds.open", e)
+            null
+        }
+    }
+
+    // গ্যালারি থেকে ছবি যোগ করে, সেভ করে। সফল হলে কী ফেরত দেয়।
+    fun addCustom(ctx: Context, uri: Uri): String? {
+        return try {
+            val o = BitmapFactory.Options()
+            o.inJustDecodeBounds = true
+            ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, o) }
+            var s = 1
+            while (max(o.outWidth, o.outHeight) / (s * 2) >= 2560) s *= 2
+            val o2 = BitmapFactory.Options()
+            o2.inSampleSize = s
+            var bmp = ctx.contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, o2)
+            } ?: return null
+            val big = max(bmp.width, bmp.height)
+            if (big > 2560) {
+                val k = 2560f / big
+                bmp = Bitmap.createScaledBitmap(bmp, (bmp.width * k).toInt(), (bmp.height * k).toInt(), true)
+            }
+            val dir = File(ctx.filesDir, DIR)
+            dir.mkdirs()
+            val name = "u" + System.currentTimeMillis() + ".jpg"
+            File(dir, name).outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 94, it) }
+            bmp.recycle()
+            "file:$name"
+        } catch (e: Exception) {
+            Dbg.w("Backgrounds.addCustom", e)
+            null
+        }
+    }
+
+    fun removeCustom(ctx: Context, key: String) {
+        try {
+            File(File(ctx.filesDir, DIR), key.removePrefix("file:")).delete()
+        } catch (e: Exception) { Dbg.w("Backgrounds.removeCustom", e) }
+        val ed = AppSettings.prefs(ctx).edit()
+        for (d in listOf(true, false)) {
+            if (AppSettings.prefs(ctx).getString(selKey(d), null) == key) ed.putString(selKey(d), NONE)
+        }
+        ed.apply()
+        cacheKey = null
+        cacheBmp = null
+        thumbCache.remove(key)
+        synchronized(lightCache) { lightCache.remove(key) }
+    }
+
+    // স্ক্রিনের উইন্ডো ব্যাকগ্রাউন্ড বসায় (সাধারণ ও ট্রান্সপারেন্ট দুই মোডেই, প্লেয়ার বাদে)
+    fun apply(act: Activity) {
+        if (act is PlayerActivity) return
+        if (AppSettings.fur(act)) {
+            act.window.setBackgroundDrawable(Fur.window(act.resources))
+            return
+        }
+        val key = selected(act)
+        if (key == NONE) {
+            // সিস্টেম ওয়ালপেপার: থিমের নিজের ব্যাকগ্রাউন্ডে ফিরে যায়
+            val tv = TypedValue()
+            if (act.theme.resolveAttribute(android.R.attr.windowBackground, tv, true)) {
+                if (tv.type >= TypedValue.TYPE_FIRST_COLOR_INT && tv.type <= TypedValue.TYPE_LAST_COLOR_INT) {
+                    act.window.setBackgroundDrawable(ColorDrawable(tv.data))
+                } else if (tv.resourceId != 0) {
+                    ContextCompat.getDrawable(act, tv.resourceId)?.let { act.window.setBackgroundDrawable(it) }
+                }
+            }
+            return
+        }
+        val level = blur(act)
+        val ck = "$key|$level"
+        var bmp = if (cacheKey == ck) cacheBmp else null
+        if (bmp == null) {
+            val raw = decode(act, key, 2560)
+            bmp = if (raw != null) blurred(smoothFit(act, raw), level) else null
+            cacheKey = ck
+            cacheBmp = bmp
+        }
+        if (bmp == null) return
+        act.window.setBackgroundDrawable(CropDrawable(bmp, if (isLight(act, key)) 0 else 46))
+    }
+
+    // ছোট ছবি স্ক্রিনের মাপে ধাপে ধাপে বড় করে (প্রতি ধাপে সর্বোচ্চ ২x) — তাহলে ফেটে/চৌকো দেখায় না
+    private fun smoothFit(act: Activity, src: Bitmap): Bitmap {
+        val dm = act.resources.displayMetrics
+        val need = max(dm.widthPixels.toFloat() / src.width, dm.heightPixels.toFloat() / src.height)
+        if (need <= 1.05f) return src
+        var cur = src
+        var scale = need
+        while (scale > 1.01f) {
+            val step = if (scale > 2f) 2f else scale
+            val nw = (cur.width * step).toInt()
+            val nh = (cur.height * step).toInt()
+            val next = try { Bitmap.createScaledBitmap(cur, nw, nh, true) } catch (e: Throwable) { return cur }
+            cur = next
+            scale /= step
+        }
+        return cur
+    }
+
+    // ছবিকে স্ক্রিন ভরে (center-crop) আঁকে — কোনো ঝাপসা/ধূসর স্তর নেই
+    private class CropDrawable(private val bmp: Bitmap, private val scrim: Int = 0) : Drawable() {
+        private val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+        private val scrimPaint = Paint().apply { color = android.graphics.Color.argb(scrim, 0, 0, 0) }
+
+        override fun draw(c: Canvas) {
+            val b = bounds
+            if (b.isEmpty) return
+            val s = max(b.width().toFloat() / bmp.width, b.height().toFloat() / bmp.height)
+            val dx = b.left + (b.width() - bmp.width * s) / 2f
+            val dy = b.top + (b.height() - bmp.height * s) / 2f
+            c.save()
+            c.clipRect(b)
+            c.translate(dx, dy)
+            c.scale(s, s)
+            c.drawBitmap(bmp, 0f, 0f, paint)
+            c.restore()
+            // গাঢ় ছবিতে সামান্য ছায়া, যাতে বক্স ছাড়া লেখা পরিষ্কার পড়া যায়
+            if (scrim > 0) c.drawRect(b, scrimPaint)
+        }
+
+        override fun setAlpha(alpha: Int) {
+            paint.alpha = alpha
+        }
+
+        override fun setColorFilter(cf: ColorFilter?) {
+            paint.colorFilter = cf
+        }
+
+        @Suppress("OVERRIDE_DEPRECATION")
+        override fun getOpacity(): Int = PixelFormat.OPAQUE
+    }
+}
