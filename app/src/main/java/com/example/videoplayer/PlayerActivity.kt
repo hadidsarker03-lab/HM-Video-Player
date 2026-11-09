@@ -1915,6 +1915,7 @@ class PlayerActivity : AppCompatActivity() {
         if (locked || inPip) return
         controlsVisible = true
         updateClock()
+        val wasHidden = bottomPanel.visibility != View.VISIBLE || bottomPanel.alpha < 0.5f
         if (::sideButtons.isInitialized && !isAudio) {
             sideButtons.animate().cancel()
             sideButtons.visibility = View.VISIBLE
@@ -1929,6 +1930,7 @@ class PlayerActivity : AppCompatActivity() {
             .setDuration(240).setInterpolator(DecelerateInterpolator()).start()
         bottomPanel.animate().alpha(1f).translationY(0f)
             .setDuration(240).setInterpolator(DecelerateInterpolator()).start()
+        if (wasHidden) Anim.popIn(listOf(btnPrev, btnPlay, btnNext))
         scheduleAutoHide()
     }
 

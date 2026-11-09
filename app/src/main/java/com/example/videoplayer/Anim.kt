@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
+import android.provider.Settings
 import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 
@@ -26,7 +27,7 @@ object Anim {
             if (!pressed) return
             pressed = false
             view.animate().scaleX(1f).scaleY(1f)
-                .setDuration(220).setInterpolator(DecelerateInterpolator()).start()
+                .setDuration(300).setInterpolator(OvershootInterpolator(2.2f)).start()
         }
         v.setOnTouchListener { view, e ->
             when (e.actionMasked) {
@@ -98,5 +99,42 @@ object Anim {
         v.animate().alpha(1f).translationX(0f).translationY(0f)
             .setDuration(360).setInterpolator(PathInterpolator(0.22f, 1f, 0.36f, 1f))
             .withLayer().start()
+    }
+
+    // ফোনের "অ্যানিমেশন বন্ধ" সেটিং মানা হয়
+    fun enabled(v: View): Boolean =
+        Settings.Global.getFloat(v.context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
+
+    // লিস্টের আইটেম নিচ থেকে ভেসে আসে (প্রথম স্ক্রিনে একটার পর একটা)
+    fun listEntry(v: View, index: Int) {
+        if (!enabled(v)) return
+        val d = v.resources.displayMetrics.density
+        v.animate().cancel()
+        v.alpha = 0f
+        v.translationY = 28f * d
+        v.animate().alpha(1f).translationY(0f)
+            .setStartDelay(index.coerceIn(0, 9) * 35L)
+            .setDuration(320).setInterpolator(PathInterpolator(0.22f, 1f, 0.36f, 1f)).start()
+    }
+
+    // রিসাইকেল হওয়া আইটেমে আগের অ্যানিমেশনের চিহ্ন মুছে স্বাভাবিক অবস্থায় আনে
+    fun resetEntry(v: View) {
+        v.animate().cancel()
+        v.alpha = 1f
+        v.translationY = 0f
+    }
+
+    // কন্ট্রোল দেখানোর সময় বাটনগুলো একটার পর একটা পপ করে আসে
+    fun popIn(views: List<View>) {
+        if (views.isEmpty() || !enabled(views[0])) return
+        views.forEachIndexed { i, v ->
+            v.animate().cancel()
+            v.alpha = 0f
+            v.scaleX = 0.7f
+            v.scaleY = 0.7f
+            v.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                .setStartDelay(i * 45L).setDuration(300)
+                .setInterpolator(OvershootInterpolator(2.4f)).start()
+        }
     }
 }

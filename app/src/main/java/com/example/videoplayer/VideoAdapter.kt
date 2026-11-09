@@ -63,7 +63,11 @@ class VideoAdapter(
 
     fun startSelection(v: Video) = toggle(v)
 
+    // যতটা পজিশন পর্যন্ত এন্ট্রি-অ্যানিমেশন হয়ে গেছে (উপরে ফিরে স্ক্রোল করলে আবার হয় না)
+    private var animatedUpTo = -1
+
     fun submit(list: List<Row>) {
+        if (rows.isEmpty()) animatedUpTo = -1
         rows = list
         if (selected.isNotEmpty()) {
             val keys = list.mapNotNull { (it as? Row.Item)?.let { r -> key(r.video) } }.toSet()
@@ -77,6 +81,7 @@ class VideoAdapter(
     fun setMode(m: Int) {
         if (m != mode) {
             mode = m
+            animatedUpTo = -1
             notifyDataSetChanged()
         }
     }
@@ -121,6 +126,11 @@ class VideoAdapter(
             holder.text.text = row.text
         } else if (holder is ItemVH && row is Row.Item) {
             bind(holder, row.video)
+            Anim.resetEntry(holder.itemView)
+            if (position > animatedUpTo) {
+                animatedUpTo = position
+                Anim.listEntry(holder.itemView, if (position < 10) position else 0)
+            }
         }
     }
 

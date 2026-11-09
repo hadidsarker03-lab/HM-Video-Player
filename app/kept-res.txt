@@ -175,3 +175,5 @@ values/strings.xml
 values/themes.xml
 xml/hm_widget_info.xml
 xml/hm_file_paths.xml
+anim/hm_zoom_in.xml
+anim/hm_zoom_out.xml
