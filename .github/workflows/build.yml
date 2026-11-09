@@ -1,0 +1,112 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # রিপোজিটরির রুটে কোনো .zip আপলোড করলে সেটা খুলে ঠিক ফোল্ডারে বসিয়ে দেয়
+      - name: Unpack uploaded zip
+        run: |
+          Z=$(ls *.zip 2>/dev/null | head -1 || true)
+          if [ -n "$Z" ]; then
+            unzip -o -q "$Z" -x ".github/*"
+            rm -f "$Z"
+          fi
+
+      # রুটে কোনো .png থাকলে সেটা থেকে অ্যাপ আইকন বানায়
+      - name: Create app icon from PNG in repo root
+        run: |
+          SRC=$(ls *.png 2>/dev/null | head -1 || true)
+          if [ -n "$SRC" ]; then
+            sudo apt-get install -y imagemagick > /dev/null
+            R=app/src/main/res
+            for pair in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+              d=${pair%%:*}
+              s=${pair##*:}
+              mkdir -p $R/mipmap-$d
+              convert "$SRC" -resize ${s}x${s} $R/mipmap-$d/ic_launcher.png
+            done
+            rm -f "$SRC"
+          fi
+
+      # রিপোর পুরনো ডুপ্লিকেট ফোল্ডার/ফাইল মুছে ফেলে
+      - name: Remove duplicate leftovers
+        run: rm -rf proj HM-Video-Player-main Extras.kt
+
+      - name: Save files to repo
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Update project files"
+            git push
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      # স্থায়ী কী থাকলে (GitHub Secrets) সেটা দিয়ে সাইন করে, না থাকলে ডিবাগ কী ব্যবহার হয়
+      - name: Prepare signing key
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          K_ALIAS: ${{ secrets.KEY_ALIAS }}
+          K_PASS: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/hm-release.jks"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/hm-release.jks" >> "$GITHUB_ENV"
+            echo "KEYSTORE_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"
+            echo "KEY_ALIAS=$K_ALIAS" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=$K_PASS" >> "$GITHUB_ENV"
+          else
+            echo "No signing secrets; release will use the debug key"
+          fi
+
+      - name: Build release and debug APK
+        run: gradle assembleRelease assembleDebug --no-daemon
+
+      # স্থায়ী কী দিয়ে সাইন হলে Release প্রকাশ হয়; অ্যাপ এখান থেকেই আপডেট নেয়
+      - name: Compute APK hash
+        id: apk
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk HM-player.apk
+          echo "sha=$(sha256sum HM-player.apk | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        if: env.KEYSTORE_FILE != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: HM Player 1.0.${{ github.run_number }}
+          body: |
+            SHA256: ${{ steps.apk.outputs.sha }}
+          files: HM-player.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HM-player-release-APK
+          path: app/build/outputs/apk/release/app-release.apk
+
+      # R8-এ কিছু ভাঙলে এই ডিবাগ APK দিয়ে কাজ চালানো যাবে
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HM-player-debug-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
