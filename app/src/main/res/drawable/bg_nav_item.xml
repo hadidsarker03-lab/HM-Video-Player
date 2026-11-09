@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- নিচের ট্যাব: প্রতিটা আলাদা Neumorphism বোতাম; যেটায় আছি সেটা ভেতরে বসা -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:enterFadeDuration="280"
+    android:exitFadeDuration="280">
+    <item android:state_checked="true">
+        <inset
+            android:insetLeft="24dp"
+            android:insetTop="12dp"
+            android:insetRight="24dp"
+            android:insetBottom="12dp">
+            <layer-list>
+                <item android:drawable="@drawable/bg_tab_on" />
+            </layer-list>
+        </inset>
+    </item>
+    <item>
+        <inset
+            android:insetLeft="24dp"
+            android:insetTop="12dp"
+            android:insetRight="24dp"
+            android:insetBottom="12dp"
+            android:drawable="@drawable/bg_tab" />
+    </item>
+</selector>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="130dp"
+    android:viewportWidth="160"
+    android:viewportHeight="130">
+    <!-- পেছনের ফোল্ডার -->
+    <path
+        android:fillColor="#3A3A3C"
+        android:pathData="M42,20 L74,20 L82,28 L122,28 Q128,28 128,34 L128,100 Q128,106 122,106 L48,106 Q42,106 42,100 Z" />
+    <!-- ভেতরের পর্দা -->
+    <path
+        android:fillColor="#8E8E90"
+        android:pathData="M52,36 L118,36 L118,92 L52,92 Z" />
+    <!-- প্লে ত্রিভুজ -->
+    <path
+        android:fillColor="#2B2B2D"
+        android:pathData="M78,50 L98,64 L78,78 Z" />
+    <!-- সামনের ফোল্ডার -->
+    <path
+        android:fillColor="#505052"
+        android:pathData="M20,82 L84,72 L124,78 L116,108 Q115,112 110,112 L28,112 Q20,112 20,104 Z" />
+    <!-- সাজসজ্জা -->
+    <path
+        android:strokeColor="#5A5A5C"
+        android:strokeWidth="3"
+        android:pathData="M12,40 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+    <path
+        android:strokeColor="#5A5A5C"
+        android:strokeWidth="3"
+        android:strokeLineJoin="round"
+        android:pathData="M136,80 L150,88 L136,96 Z" />
+    <path
+        android:strokeColor="#5A5A5C"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M42,8 L44,16 M54,6 L55,14" />
+</vector>

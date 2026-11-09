@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Neumorphism: লাইট থিমে দুই দিকের নরম ছায়া; গ্লাস/ডার্কে ছায়া স্বচ্ছ, তাই সমতল -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:left="3dp" android:top="3dp">
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/hmNeuDark" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+    <item android:right="3dp" android:bottom="3dp">
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/hmNeuLight" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+    <item
+        android:left="2dp"
+        android:top="2dp"
+        android:right="2dp"
+        android:bottom="2dp">
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/hmSurfaceAlt" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+    <item
+        android:left="0dp"
+        android:top="0dp"
+        android:right="0dp"
+        android:bottom="0dp"
+        android:drawable="?attr/hmFur16" />
+</layer-list>

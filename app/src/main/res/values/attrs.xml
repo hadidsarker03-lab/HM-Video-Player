@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="hmBg" format="color" />
+    <attr name="hmSurface" format="color" />
+    <attr name="hmSurfaceAlt" format="color" />
+    <attr name="hmDivider" format="color" />
+    <attr name="hmNeuLight" format="color" />
+    <attr name="hmNeuDark" format="color" />
+    <attr name="hmText" format="color" />
+    <attr name="hmTextSecondary" format="color" />
+    <attr name="hmFur10" format="reference|color" />
+    <attr name="hmFur14" format="reference|color" />
+    <attr name="hmFur16" format="reference|color" />
+    <attr name="hmFur20" format="reference|color" />
+    <attr name="hmFur22" format="reference|color" />
+    <attr name="hmFur60" format="reference|color" />
+    <attr name="hmFurOn60" format="reference|color" />
+</resources>
