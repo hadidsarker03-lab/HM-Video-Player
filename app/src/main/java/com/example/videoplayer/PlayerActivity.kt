@@ -245,6 +245,14 @@ class PlayerActivity : AppCompatActivity() {
     private var volLevel = 0f
 
     private val playerListener = object : Player.Listener {
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) showEndCard()
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_ENDED) showEndCard()
+        }
+
         override fun onPlayerError(error: PlaybackException) {
             Toast.makeText(
                 this@PlayerActivity,
@@ -254,6 +262,7 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) hideEndCard()
             Anim.swapIcon(btnPlay, if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
         }
 
@@ -405,6 +414,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        applyPauseAtEnd(false)
         handler.removeCallbacks(ticker)
         handler.removeCallbacks(abRun)
         releaseController()
@@ -499,7 +509,51 @@ class PlayerActivity : AppCompatActivity() {
         needLoad = false
     }
 
+    // ---------- ভিডিও শেষ হলে "Up Next" কার্ড ----------
+    private var endCard: EndCard? = null
+
+    // ভিডিওর শেষে প্লেয়ার নিজে পরেরটায় না গিয়ে থামে, যাতে কার্ড দেখানো যায় (প্লেয়ার একই প্রসেসে ExoPlayer)
+    private fun applyPauseAtEnd(on: Boolean) {
+        try { (PlaybackService.current as? androidx.media3.exoplayer.ExoPlayer)?.pauseAtEndOfMediaItems = on }
+        catch (e: Exception) { Dbg.w("PlayerActivity.applyPauseAtEnd", e) }
+    }
+
+    private fun showEndCard() {
+        val p = player ?: return
+        if (isAudio || endCard != null || isFinishing || isDestroyed) return
+        val auto = AppSettings.continuous(this)
+        if (inPip || FloatingPlayer.active) {
+            if (auto && p.hasNextMediaItem()) { p.seekToNextMediaItem(); p.play() }
+            return
+        }
+        val idx = p.nextMediaItemIndex
+        val next = if (idx != C.INDEX_UNSET) p.getMediaItemAt(idx) else null
+        val card = EndCard(
+            this,
+            next?.mediaMetadata?.title?.toString(),
+            next?.localConfiguration?.uri,
+            auto && next != null,
+            onNext = { hideEndCard(); player?.let { it.seekToNextMediaItem(); it.play() } },
+            onReplay = { hideEndCard(); player?.let { it.seekTo(0L); it.play() } },
+            onBack = { finish() }
+        )
+        findViewById<ViewGroup>(R.id.playerRoot).addView(
+            card, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        endCard = card
+        if (controlsVisible) hideControls()
+    }
+
+    private fun hideEndCard() {
+        val c = endCard ?: return
+        endCard = null
+        c.animate().alpha(0f).setDuration(300).withEndAction {
+            (c.parent as? ViewGroup)?.removeView(c)
+        }.start()
+    }
+
     private fun onItemChanged(item: MediaItem?) {
+        hideEndCard()
         if (zoom != 1f) {
             zoom = 1f
             applyFlip()
@@ -524,6 +578,7 @@ class PlayerActivity : AppCompatActivity() {
             applyAudioMode()
         }
         loadLyrics(item?.localConfiguration?.uri)
+        applyPauseAtEnd(!isAudio)
     }
 
     private fun applyAudioMode() {
@@ -1919,7 +1974,7 @@ class PlayerActivity : AppCompatActivity() {
         if (::sideButtons.isInitialized && !isAudio) {
             sideButtons.animate().cancel()
             sideButtons.visibility = View.VISIBLE
-            sideButtons.animate().alpha(1f).setDuration(240).start()
+            sideButtons.animate().alpha(1f).setDuration(400).start()
         }
         updateProgress()
         topBar.animate().cancel()
@@ -1927,9 +1982,9 @@ class PlayerActivity : AppCompatActivity() {
         topBar.visibility = View.VISIBLE
         bottomPanel.visibility = View.VISIBLE
         topBar.animate().alpha(1f).translationY(0f)
-            .setDuration(240).setInterpolator(DecelerateInterpolator()).start()
+            .setDuration(400).setInterpolator(DecelerateInterpolator()).start()
         bottomPanel.animate().alpha(1f).translationY(0f)
-            .setDuration(240).setInterpolator(DecelerateInterpolator()).start()
+            .setDuration(400).setInterpolator(DecelerateInterpolator()).start()
         if (wasHidden) Anim.popIn(listOf(btnPrev, btnPlay, btnNext))
         scheduleAutoHide()
     }
@@ -1939,21 +1994,21 @@ class PlayerActivity : AppCompatActivity() {
         updateClock()
         if (::sideButtons.isInitialized) {
             sideButtons.animate().cancel()
-            sideButtons.animate().alpha(0f).setDuration(220).withEndAction {
+            sideButtons.animate().alpha(0f).setDuration(340).withEndAction {
                 if (!controlsVisible) sideButtons.visibility = View.GONE
             }.start()
         }
         handler.removeCallbacks(autoHide)
         // স্ক্রিনে কোনো অপশন না থাকলে শর্টকাট সারি স্লাইড করে তীরে ঢুকে যায়
-        if (shortcutsExpanded) toggleShortcutsExpanded(220L)
+        if (shortcutsExpanded) toggleShortcutsExpanded(340L)
         topBar.animate().cancel()
         bottomPanel.animate().cancel()
         topBar.animate().alpha(0f).translationY(-topBar.height * 0.5f)
-            .setDuration(220).withEndAction {
+            .setDuration(340).withEndAction {
                 if (!controlsVisible) topBar.visibility = View.GONE
             }.start()
         bottomPanel.animate().alpha(0f).translationY(bottomPanel.height * 0.5f)
-            .setDuration(220).withEndAction {
+            .setDuration(340).withEndAction {
                 if (!controlsVisible) bottomPanel.visibility = View.GONE
             }.start()
     }

@@ -195,20 +195,13 @@ class MainActivity : MediaActivity() {
         sub = savedInstanceState?.getInt(KEY_SUB, SUB_ALL) ?: SUB_ALL
         nav.selectedItemId = navIdFor(tab)
         nav.setOnItemSelectedListener { item ->
-            val newTab = when (item.itemId) {
-                R.id.nav_audio -> TAB_MUSIC
-                R.id.nav_me -> TAB_ME
-                else -> TAB_VIDEO
-            }
-            var dir = 0
-            if (newTab != tab) {
-                selection.exit()
-                if (searchBar.visibility == View.VISIBLE) closeSearch()
-                dir = if (newTab > tab) 1 else -1
-                tab = newTab
-            }
-            buildTabs()
-            refresh(true, dir)
+            switchTab(
+                when (item.itemId) {
+                    R.id.nav_audio -> TAB_MUSIC
+                    R.id.nav_me -> TAB_ME
+                    else -> TAB_VIDEO
+                }
+            )
             true
         }
 
@@ -216,6 +209,72 @@ class MainActivity : MediaActivity() {
         applyViewMode()
         buildTabs()
         refresh()
+    }
+
+    // ট্যাব বদল: পুরনো কনটেন্ট এক পাশে সরে যায়, নতুনটা উল্টো পাশ থেকে স্লাইড করে আসে
+    private fun switchTab(newTab: Int) {
+        var dir = 0
+        if (newTab != tab) {
+            selection.exit()
+            if (searchBar.visibility == View.VISIBLE) closeSearch()
+            dir = if (newTab > tab) 1 else -1
+            tab = newTab
+        }
+        val go = {
+            buildTabs()
+            refresh(true, dir)
+        }
+        if (dir != 0 && Anim.enabled(content)) {
+            val d = resources.displayMetrics.density
+            content.animate().cancel()
+            content.animate().alpha(0f).translationX(-dir * 56f * d).setDuration(260)
+                .withEndAction { go() }.start()
+        } else go()
+    }
+
+    // ---------- ডানে-বামে সোয়াইপ করে ট্যাব বদল ----------
+    private var swDownX = 0f
+    private var swDownY = 0f
+    private var swDownT = 0L
+    private var swTracking = false
+
+    private fun hScrollableAt(v: View, x: Int, y: Int): Boolean {
+        if (v.visibility != View.VISIBLE) return false
+        val loc = IntArray(2)
+        v.getLocationOnScreen(loc)
+        if (x < loc[0] || x > loc[0] + v.width || y < loc[1] || y > loc[1] + v.height) return false
+        if (v is android.widget.SeekBar) return true
+        if (v.canScrollHorizontally(-1) || v.canScrollHorizontally(1)) return true
+        if (v is ViewGroup) for (i in 0 until v.childCount) if (hScrollableAt(v.getChildAt(i), x, y)) return true
+        return false
+    }
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (::nav.isInitialized) when (ev.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                swDownX = ev.rawX; swDownY = ev.rawY; swDownT = ev.eventTime
+                val navLoc = IntArray(2)
+                nav.getLocationOnScreen(navLoc)
+                swTracking = ev.rawY < navLoc[1] &&
+                    !hScrollableAt(window.decorView, ev.rawX.toInt(), ev.rawY.toInt())
+            }
+            android.view.MotionEvent.ACTION_CANCEL -> swTracking = false
+        }
+        val handled = super.dispatchTouchEvent(ev)
+        if (::nav.isInitialized && ev.actionMasked == android.view.MotionEvent.ACTION_UP && swTracking) {
+            swTracking = false
+            val d = resources.displayMetrics.density
+            val dx = ev.rawX - swDownX
+            val dy = ev.rawY - swDownY
+            if (Math.abs(dx) > 100f * d && Math.abs(dx) > Math.abs(dy) * 1.8f && ev.eventTime - swDownT < 800) {
+                val target = (tab + if (dx < 0) 1 else -1).coerceIn(TAB_VIDEO, TAB_ME)
+                if (target != tab) {
+                    switchTab(target)
+                    nav.select(target, true)
+                }
+            }
+        }
+        return handled
     }
 
     // গ্যালারিতে নতুন ভিডিও/গান এলে (যেমন ডাউনলোড শেষ হলে) তালিকা নিজে থেকে রিফ্রেশ হয়

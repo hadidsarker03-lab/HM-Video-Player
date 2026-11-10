@@ -37,3 +37,4 @@ WallpaperActivity.kt
 Vault.kt
 Lyrics.kt
 Updater.kt
+EndCard.kt

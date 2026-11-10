@@ -16,7 +16,7 @@ object Anim {
 
     // টাচ করলে চাপ খাওয়া, ছাড়লে স্প্রিং-এর মতো ফিরে আসা
     @SuppressLint("ClickableViewAccessibility")
-    fun pressable(v: View, scaleTo: Float = 0.86f) {
+    fun pressable(v: View, scaleTo: Float = 0.84f) {
         if (v.getTag(R.id.anim_attached) != null) return
         v.setTag(R.id.anim_attached, true)
         var dx = 0f
@@ -27,7 +27,7 @@ object Anim {
             if (!pressed) return
             pressed = false
             view.animate().scaleX(1f).scaleY(1f)
-                .setDuration(300).setInterpolator(OvershootInterpolator(2.2f)).start()
+                .setDuration(520).setInterpolator(OvershootInterpolator(2.6f)).start()
         }
         v.setOnTouchListener { view, e ->
             when (e.actionMasked) {
@@ -35,7 +35,7 @@ object Anim {
                     dx = e.rawX; dy = e.rawY
                     pressed = true
                     view.animate().scaleX(scaleTo).scaleY(scaleTo)
-                        .setDuration(90).setInterpolator(DecelerateInterpolator()).start()
+                        .setDuration(130).setInterpolator(DecelerateInterpolator()).start()
                 }
                 // আঙুল সরালে (উপর-নিচ বা পাশে) ছোট হয়ে থাকে না, সাথে সাথে স্বাভাবিক হয়
                 MotionEvent.ACTION_MOVE ->
@@ -68,7 +68,7 @@ object Anim {
         icon.scaleY = 0.55f
         icon.rotation = -22f
         icon.animate().scaleX(1f).scaleY(1f).rotation(0f)
-            .setDuration(480).setInterpolator(OvershootInterpolator(3.2f)).start()
+            .setDuration(760).setInterpolator(OvershootInterpolator(3.2f)).start()
     }
 
     // আইকন বদলানোর সময় ঘুরে-ছোট হয়ে নতুনটা ঘুরে-বড় হয়ে আসে (প্লে/পজ ইত্যাদি)
@@ -81,11 +81,11 @@ object Anim {
             return
         }
         iv.animate().cancel()
-        iv.animate().scaleX(0f).scaleY(0f).rotation(90f).setDuration(110).withEndAction {
+        iv.animate().scaleX(0f).scaleY(0f).rotation(90f).setDuration(200).withEndAction {
             iv.setImageResource(res)
             iv.rotation = -90f
             iv.animate().scaleX(1f).scaleY(1f).rotation(0f)
-                .setDuration(260).setInterpolator(OvershootInterpolator(2f)).start()
+                .setDuration(420).setInterpolator(OvershootInterpolator(2f)).start()
         }.start()
     }
 
@@ -94,10 +94,10 @@ object Anim {
         val d = v.resources.displayMetrics.density
         v.animate().cancel()
         v.alpha = 0f
-        v.translationX = dir * 26f * d
+        v.translationX = dir * 60f * d
         v.translationY = if (dir == 0) 10f * d else 0f
         v.animate().alpha(1f).translationX(0f).translationY(0f)
-            .setDuration(360).setInterpolator(PathInterpolator(0.22f, 1f, 0.36f, 1f))
+            .setDuration(620).setInterpolator(PathInterpolator(0.22f, 1f, 0.36f, 1f))
             .withLayer().start()
     }
 
@@ -111,10 +111,10 @@ object Anim {
         val d = v.resources.displayMetrics.density
         v.animate().cancel()
         v.alpha = 0f
-        v.translationY = 28f * d
+        v.translationY = 44f * d
         v.animate().alpha(1f).translationY(0f)
-            .setStartDelay(index.coerceIn(0, 9) * 35L)
-            .setDuration(320).setInterpolator(PathInterpolator(0.22f, 1f, 0.36f, 1f)).start()
+            .setStartDelay(index.coerceIn(0, 9) * 80L)
+            .setDuration(620).setInterpolator(PathInterpolator(0.22f, 1f, 0.36f, 1f)).start()
     }
 
     // রিসাইকেল হওয়া আইটেমে আগের অ্যানিমেশনের চিহ্ন মুছে স্বাভাবিক অবস্থায় আনে
@@ -130,10 +130,10 @@ object Anim {
         views.forEachIndexed { i, v ->
             v.animate().cancel()
             v.alpha = 0f
-            v.scaleX = 0.7f
-            v.scaleY = 0.7f
+            v.scaleX = 0.5f
+            v.scaleY = 0.5f
             v.animate().alpha(1f).scaleX(1f).scaleY(1f)
-                .setStartDelay(i * 45L).setDuration(300)
+                .setStartDelay(i * 110L).setDuration(520)
                 .setInterpolator(OvershootInterpolator(2.4f)).start()
         }
     }

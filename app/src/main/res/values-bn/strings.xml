@@ -495,4 +495,7 @@
     <string name="upd_hash_bad">ডাউনলোড করা ফাইল মেলেনি, তাই বাদ দেওয়া হয়েছে</string>
     <string name="upd_downloading">আপডেট ডাউনলোড হচ্ছে…</string>
     <string name="upd_perm">এই অ্যাপকে ইনস্টলের অনুমতি দিয়ে আবার আপডেটে চাপুন</string>
+    <string name="end_up_next">এরপর</string>
+    <string name="end_replay">আবার চালান</string>
+    <string name="end_next">পরের ভিডিও</string>
 </resources>
