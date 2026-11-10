@@ -455,8 +455,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         player = c
         // ফিরে এলে ভিডিও ট্র্যাক আবার চালু
-        c.trackSelectionParameters = c.trackSelectionParameters.buildUpon()
-            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false).build()
+        PlaybackService.setVideoEnabled(true)
         // সার্ভিসটা স্টার্টেড রাখি, যাতে স্ক্রিন বন্ধ/অ্যাপ মিনিমাইজেও প্লেব্যাক না থামে
         try { startService(Intent(this, PlaybackService::class.java)) } catch (e: Exception) { Dbg.w("PlayerActivity.onControllerReady", e) }
         askBatteryOnce()
@@ -624,18 +623,20 @@ class PlayerActivity : AppCompatActivity() {
             savedPosition = c.currentPosition
             savedPlayWhenReady = c.playWhenReady
             c.removeListener(playerListener)
-            // ব্যাক চাপলে ভিডিও থামে; গান ব্যাকগ্রাউন্ড চালু থাকলে চলতে থাকে
+            // ব্যাকগ্রাউন্ড প্লে চালু থাকলে ব্যাক/হোম/স্ক্রিন বন্ধ — সবখানেই শব্দ চলতে থাকে।
+            // শুধু থামানো অবস্থায় বের হলে নোটিফিকেশন ফেলে না রেখে সেশন পরিষ্কার করা হয়।
+            val playingNow = c.playWhenReady && c.playbackState != Player.STATE_ENDED
             val keepPlaying = isAudio || FloatingPlayer.active ||
-                (AppSettings.backgroundPlay(this) && !isFinishing)
+                (AppSettings.backgroundPlay(this) && playingNow)
             if (!keepPlaying) {
                 c.pause()
                 if (isFinishing) c.clearMediaItems()
-            } else {
+            } else if (!FloatingPlayer.active && !isAudio) {
                 // ব্যাকগ্রাউন্ডে ছবির দরকার নেই: ভিডিও ট্র্যাক বন্ধ করলে শুধু শব্দ নিরবচ্ছিন্ন চলে
-                if (!FloatingPlayer.active) {
-                    c.trackSelectionParameters = c.trackSelectionParameters.buildUpon()
-                        .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true).build()
-                }
+                PlaybackService.setVideoEnabled(false)
+                PlaybackService.ensureForeground()
+            } else {
+                PlaybackService.ensureForeground()
             }
         }
         if (::playerView.isInitialized) playerView.player = null

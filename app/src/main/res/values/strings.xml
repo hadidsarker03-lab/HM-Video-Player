@@ -498,4 +498,5 @@
     <string name="end_up_next">Up Next</string>
     <string name="end_replay">Replay</string>
     <string name="end_next">Next</string>
+    <string name="text_color_unreadable">This colour is hard to read on the current background. Try Dark mode or another colour.</string>
 </resources>

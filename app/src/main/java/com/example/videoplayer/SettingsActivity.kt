@@ -148,7 +148,7 @@ class SettingsActivity : AppCompatActivity() {
             val t = TextView(this)
             t.setText(res)
             t.textSize = 13f
-            t.setTextColor(UiKit.accent(this))
+            t.setTextColor(UiKit.textColor(this))
             t.setTypeface(t.typeface, android.graphics.Typeface.BOLD)
             t.setPadding(UiKit.dp(this, 20), UiKit.dp(this, 18), UiKit.dp(this, 20), UiKit.dp(this, 4))
             list.addView(t)
@@ -205,12 +205,6 @@ class SettingsActivity : AppCompatActivity() {
         info(R.drawable.ic_shield, R.string.about_privacy) { getString(R.string.about_privacy_txt) }
         info(R.drawable.ic_lock, R.string.about_perms) { getString(R.string.about_perms_txt) }
         info(R.drawable.ic_queue, R.string.about_lic) { getString(R.string.about_lic_txt) }
-        info(R.drawable.ic_favorite, R.string.about_credits) {
-            val names = try {
-                assets.open("credits.txt").bufferedReader().use { it.readText() }.lines().joinToString("\n") { "• $it" }
-            } catch (e: Exception) { Dbg.w("SettingsActivity.link", e); "" }
-            getString(R.string.about_credits_txt, names)
-        }
     }
 
     companion object {

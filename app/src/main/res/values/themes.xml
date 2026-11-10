@@ -159,40 +159,106 @@
         <item name="android:activityCloseExitAnimation">@anim/hm_exit</item>
     </style>
 
-    <style name="TextColor_Blue">
-        <item name="hmText">#2D8CFF</item>
-        <item name="hmTextSecondary">#B32D8CFF</item>
-        <item name="colorOnSurface">#2D8CFF</item>
-        <item name="colorOnSecondaryContainer">#2D8CFF</item>
+    <style name="TextColor_Denim">
+        <item name="hmText">#6579BE</item>
+        <item name="hmTextSecondary">#B36579BE</item>
+        <item name="colorOnSurface">#6579BE</item>
+        <item name="colorOnSecondaryContainer">#6579BE</item>
     </style>
-    <style name="TextColor_Pink">
-        <item name="hmText">#D946C8</item>
-        <item name="hmTextSecondary">#B3D946C8</item>
-        <item name="colorOnSurface">#D946C8</item>
-        <item name="colorOnSecondaryContainer">#D946C8</item>
+    <style name="TextColor_Apricot">
+        <item name="hmText">#EAB099</item>
+        <item name="hmTextSecondary">#B3EAB099</item>
+        <item name="colorOnSurface">#EAB099</item>
+        <item name="colorOnSecondaryContainer">#EAB099</item>
     </style>
-    <style name="TextColor_Orange">
-        <item name="hmText">#FF7A3D</item>
-        <item name="hmTextSecondary">#B3FF7A3D</item>
-        <item name="colorOnSurface">#FF7A3D</item>
-        <item name="colorOnSecondaryContainer">#FF7A3D</item>
+    <style name="TextColor_Sand">
+        <item name="hmText">#E9DFD8</item>
+        <item name="hmTextSecondary">#B3E9DFD8</item>
+        <item name="colorOnSurface">#E9DFD8</item>
+        <item name="colorOnSecondaryContainer">#E9DFD8</item>
     </style>
-    <style name="TextColor_Purple">
-        <item name="hmText">#8B5CF6</item>
-        <item name="hmTextSecondary">#B38B5CF6</item>
-        <item name="colorOnSurface">#8B5CF6</item>
-        <item name="colorOnSecondaryContainer">#8B5CF6</item>
+    <style name="TextColor_Coral">
+        <item name="hmText">#EC654A</item>
+        <item name="hmTextSecondary">#B3EC654A</item>
+        <item name="colorOnSurface">#EC654A</item>
+        <item name="colorOnSecondaryContainer">#EC654A</item>
     </style>
-    <style name="TextColor_Red">
-        <item name="hmText">#EF4444</item>
-        <item name="hmTextSecondary">#B3EF4444</item>
-        <item name="colorOnSurface">#EF4444</item>
-        <item name="colorOnSecondaryContainer">#EF4444</item>
+    <style name="TextColor_Ember">
+        <item name="hmText">#F54800</item>
+        <item name="hmTextSecondary">#B3F54800</item>
+        <item name="colorOnSurface">#F54800</item>
+        <item name="colorOnSecondaryContainer">#F54800</item>
     </style>
-    <style name="TextColor_White">
-        <item name="hmText">#FFFFFF</item>
-        <item name="hmTextSecondary">#B3FFFFFF</item>
-        <item name="colorOnSurface">#FFFFFF</item>
-        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+    <style name="TextColor_Periwinkle">
+        <item name="hmText">#AFAFDA</item>
+        <item name="hmTextSecondary">#B3AFAFDA</item>
+        <item name="colorOnSurface">#AFAFDA</item>
+        <item name="colorOnSecondaryContainer">#AFAFDA</item>
+    </style>
+    <style name="TextColor_Petal">
+        <item name="hmText">#FDF1F5</item>
+        <item name="hmTextSecondary">#B3FDF1F5</item>
+        <item name="colorOnSurface">#FDF1F5</item>
+        <item name="colorOnSecondaryContainer">#FDF1F5</item>
+    </style>
+    <style name="TextColor_Sunset">
+        <item name="hmText">#EE8E46</item>
+        <item name="hmTextSecondary">#B3EE8E46</item>
+        <item name="colorOnSurface">#EE8E46</item>
+        <item name="colorOnSecondaryContainer">#EE8E46</item>
+    </style>
+    <style name="TextColor_Chestnut">
+        <item name="hmText">#8A6729</item>
+        <item name="hmTextSecondary">#B38A6729</item>
+        <item name="colorOnSurface">#8A6729</item>
+        <item name="colorOnSecondaryContainer">#8A6729</item>
+    </style>
+    <style name="TextColor_Peach">
+        <item name="hmText">#EBC8B3</item>
+        <item name="hmTextSecondary">#B3EBC8B3</item>
+        <item name="colorOnSurface">#EBC8B3</item>
+        <item name="colorOnSecondaryContainer">#EBC8B3</item>
+    </style>
+    <style name="TextColor_Linen">
+        <item name="hmText">#ECE7E2</item>
+        <item name="hmTextSecondary">#B3ECE7E2</item>
+        <item name="colorOnSurface">#ECE7E2</item>
+        <item name="colorOnSecondaryContainer">#ECE7E2</item>
+    </style>
+    <style name="TextColor_Spruce">
+        <item name="hmText">#4A7766</item>
+        <item name="hmTextSecondary">#B34A7766</item>
+        <item name="colorOnSurface">#4A7766</item>
+        <item name="colorOnSecondaryContainer">#4A7766</item>
+    </style>
+    <style name="TextColor_Ocean">
+        <item name="hmText">#19485F</item>
+        <item name="hmTextSecondary">#B319485F</item>
+        <item name="colorOnSurface">#19485F</item>
+        <item name="colorOnSecondaryContainer">#19485F</item>
+    </style>
+    <style name="TextColor_Lime">
+        <item name="hmText">#D9E0A4</item>
+        <item name="hmTextSecondary">#B3D9E0A4</item>
+        <item name="colorOnSurface">#D9E0A4</item>
+        <item name="colorOnSecondaryContainer">#D9E0A4</item>
+    </style>
+    <style name="TextColor_Forest">
+        <item name="hmText">#285B23</item>
+        <item name="hmTextSecondary">#B3285B23</item>
+        <item name="colorOnSurface">#285B23</item>
+        <item name="colorOnSecondaryContainer">#285B23</item>
+    </style>
+    <style name="TextColor_Orchid">
+        <item name="hmText">#F2CFF1</item>
+        <item name="hmTextSecondary">#B3F2CFF1</item>
+        <item name="colorOnSurface">#F2CFF1</item>
+        <item name="colorOnSecondaryContainer">#F2CFF1</item>
+    </style>
+    <style name="TextColor_Mocha">
+        <item name="hmText">#92736C</item>
+        <item name="hmTextSecondary">#B392736C</item>
+        <item name="colorOnSurface">#92736C</item>
+        <item name="colorOnSecondaryContainer">#92736C</item>
     </style>
 </resources>

@@ -498,4 +498,5 @@
     <string name="end_up_next">এরপর</string>
     <string name="end_replay">আবার চালান</string>
     <string name="end_next">পরের ভিডিও</string>
+    <string name="text_color_unreadable">এই রংটা বর্তমান ব্যাকগ্রাউন্ডে পড়া কষ্টকর। ডার্ক মোডে বা অন্য রং চেষ্টা করুন।</string>
 </resources>

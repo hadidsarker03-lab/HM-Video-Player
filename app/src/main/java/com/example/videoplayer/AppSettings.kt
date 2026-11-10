@@ -68,23 +68,74 @@ object AppSettings {
         if (fur(c)) R.style.Theme_HMPlayer_Fur
         else if (glass(c)) R.style.Theme_HMPlayer_Glass else R.style.Theme_HMPlayer
 
-    // টেক্সট রং: 0 = ডিফল্ট, বাকিগুলো ওভারলে স্টাইল (শেষেরটা সাদা)
+    // টেক্সট রং: 0 = ডিফল্ট, বাকিগুলো প্যালেটের নামি রং (ওভারলে স্টাইল)
     val textStyles = intArrayOf(
-        0, R.style.TextColor_Blue, R.style.TextColor_Pink,
-        R.style.TextColor_Orange, R.style.TextColor_Purple, R.style.TextColor_Red,
-        R.style.TextColor_White
+        0,
+        R.style.TextColor_Denim,
+        R.style.TextColor_Apricot,
+        R.style.TextColor_Sand,
+        R.style.TextColor_Coral,
+        R.style.TextColor_Ember,
+        R.style.TextColor_Periwinkle,
+        R.style.TextColor_Petal,
+        R.style.TextColor_Sunset,
+        R.style.TextColor_Chestnut,
+        R.style.TextColor_Peach,
+        R.style.TextColor_Linen,
+        R.style.TextColor_Spruce,
+        R.style.TextColor_Ocean,
+        R.style.TextColor_Lime,
+        R.style.TextColor_Forest,
+        R.style.TextColor_Orchid,
+        R.style.TextColor_Mocha
     )
     val textColors = intArrayOf(
-        0, 0xFF2D8CFF.toInt(), 0xFFD946C8.toInt(),
-        0xFFFF7A3D.toInt(), 0xFF8B5CF6.toInt(), 0xFFEF4444.toInt(), 0xFFFFFFFF.toInt()
+        0,
+        0xFF6579BE.toInt(),
+        0xFFEAB099.toInt(),
+        0xFFE9DFD8.toInt(),
+        0xFFEC654A.toInt(),
+        0xFFF54800.toInt(),
+        0xFFAFAFDA.toInt(),
+        0xFFFDF1F5.toInt(),
+        0xFFEE8E46.toInt(),
+        0xFF8A6729.toInt(),
+        0xFFEBC8B3.toInt(),
+        0xFFECE7E2.toInt(),
+        0xFF4A7766.toInt(),
+        0xFF19485F.toInt(),
+        0xFFD9E0A4.toInt(),
+        0xFF285B23.toInt(),
+        0xFFF2CFF1.toInt(),
+        0xFF92736C.toInt()
     )
+    val textNames = arrayOf("", "Denim", "Apricot", "Sand", "Coral", "Ember", "Periwinkle", "Petal", "Sunset", "Chestnut", "Peach", "Linen", "Spruce", "Ocean", "Lime", "Forest", "Orchid", "Mocha")
 
+    // নতুন তালিকা চালুর পর পুরনো পছন্দের নম্বর মিলত না, তাই আলাদা চাবি (পুরনোটা নিজে ডিফল্টে ফিরবে)
     fun textIndex(c: Context): Int =
-        prefs(c).getInt("text_color", 0).coerceIn(0, textStyles.size - 1)
+        prefs(c).getInt("text_color_v2", 0).coerceIn(0, textStyles.size - 1)
 
     fun setTextIndex(c: Context, i: Int) {
-        prefs(c).edit().putInt("text_color", i).apply()
+        prefs(c).edit().putInt("text_color_v2", i).apply()
     }
+
+    // বর্তমান ব্যাকগ্রাউন্ডের আনুমানিক রং (হালকা/গাঢ় মোড বা ওয়ালপেপার অনুযায়ী)
+    fun effectiveBg(c: Context): Int {
+        if (!fur(c) && !glass(c) && Backgrounds.hasWallpaper(c)) {
+            return if (Backgrounds.isLight(c, Backgrounds.selected(c))) 0xFFE8EAEF.toInt() else 0xFF1E2026.toInt()
+        }
+        val night = when (themeMode(c)) {
+            "light" -> false
+            "dark" -> true
+            else -> (c.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+        return if (night) 0xFF24272D.toInt() else 0xFFDFE4EC.toInt()
+    }
+
+    // এই লেখার রং বর্তমান ব্যাকগ্রাউন্ডে পড়া যায় কি? (হালকা থিমে সাদা/হালকা রং হারিয়ে যায়)
+    fun textColorUsable(c: Context, color: Int): Boolean =
+        androidx.core.graphics.ColorUtils.calculateContrast(color or 0xFF000000.toInt(), effectiveBg(c)) >= 2.5
 
     fun applyTheme(act: android.app.Activity) {
         act.setTheme(themeRes(act))
@@ -95,8 +146,10 @@ object AppSettings {
             act.theme.applyStyle(if (light) R.style.WallpaperTextOnLight else R.style.WallpaperTextOnDark, true)
         }
         // ইউজারের বাছা টেক্সট রং সবার শেষে (এটাই জেতে)
-        val st = textStyles[textIndex(act)]
-        if (st != 0) act.theme.applyStyle(st, true)
+        // পড়া যায় না এমন রং (যেমন হালকা থিমে সাদা) বসানো হয় না, থিমের নিজের রংই থাকে
+        val idx = textIndex(act)
+        val st = textStyles[idx]
+        if (st != 0 && textColorUsable(act, textColors[idx])) act.theme.applyStyle(st, true)
     }
 
     // ব্যাকগ্রাউন্ডে চালানো (ডিফল্ট: চালু)

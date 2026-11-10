@@ -47,6 +47,7 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
         current = player
+        instance = this
         AudioFx.auxHook = { id -> player.setAuxEffectInfo(AuxEffectInfo(id, 1f)) }
         // ইকুয়ালাইজার/অডিও ইফেক্ট অডিও সেশনের সাথে যুক্ত হয়
         player.addListener(object : Player.Listener {
@@ -86,6 +87,7 @@ class PlaybackService : MediaSessionService() {
         SleepTimer.cancel()
         AudioFx.release()
         current = null
+        instance = null
         mediaSession?.run {
             player.release()
             release()
@@ -98,5 +100,27 @@ class PlaybackService : MediaSessionService() {
         // একই প্রসেস থেকে (স্লিপ টাইমার) চলমান প্লেয়ারে পৌঁছানোর জন্য
         @Volatile
         var current: Player? = null
+
+        @Volatile
+        private var instance: PlaybackService? = null
+
+        // ভিডিও ট্র্যাক চালু/বন্ধ সরাসরি প্লেয়ারে (কন্ট্রোলার ছাড়ার সাথে কমান্ড হারানোর ঝুঁকি নেই)
+        fun setVideoEnabled(enabled: Boolean) {
+            val p = current ?: return
+            try {
+                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, !enabled).build()
+            } catch (e: Exception) { Dbg.w("PlaybackService.setVideoEnabled", e) }
+        }
+
+        // ব্যাকগ্রাউন্ডে যাওয়ার আগে সার্ভিসকে ফোরগ্রাউন্ডে তোলা, যাতে সিস্টেম প্লেব্যাক না মারে
+        @Suppress("DEPRECATION")
+        fun ensureForeground() {
+            try {
+                val s = instance ?: return
+                val session = s.mediaSession ?: return
+                s.onUpdateNotification(session)
+            } catch (e: Exception) { Dbg.w("PlaybackService.ensureForeground", e) }
+        }
     }
 }

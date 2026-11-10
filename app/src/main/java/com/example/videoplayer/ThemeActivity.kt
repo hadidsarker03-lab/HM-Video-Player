@@ -188,22 +188,38 @@ class ThemeActivity : AppCompatActivity() {
             colorRow.setPadding(dp(20), dp(10), dp(20), dp(24))
             for (i in AppSettings.textStyles.indices) {
                 val color = if (i == 0) ContextCompat.getColor(this, R.color.text_primary) else AppSettings.textColors[i]
-                val sel = AppSettings.textIndex(this) == i
+                val usable = i == 0 || AppSettings.textColorUsable(this, color)
+                val sel = AppSettings.textIndex(this) == i && usable
                 val circle = View(this)
                 circle.background = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
                     setColor(color)
                     setStroke(dp(if (sel) 3 else 1), if (sel) accent else (fg and 0x00FFFFFF) or 0x55000000)
                 }
-                circle.setOnClickListener {
-                    if (AppSettings.textIndex(this) != i) {
+                val name = TextView(this)
+                name.text = if (i == 0) getString(R.string.bg_default) else AppSettings.textNames[i]
+                name.setTextColor(fg)
+                name.textSize = 11f
+                name.gravity = Gravity.CENTER
+                name.maxLines = 1
+                val cell = LinearLayout(this)
+                cell.orientation = LinearLayout.VERTICAL
+                cell.gravity = Gravity.CENTER_HORIZONTAL
+                cell.addView(circle, LinearLayout.LayoutParams(dp(48), dp(48)))
+                cell.addView(name, LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
+                if (!usable) cell.alpha = 0.3f
+                cell.setOnClickListener {
+                    if (!usable) {
+                        android.widget.Toast.makeText(this, R.string.text_color_unreadable, android.widget.Toast.LENGTH_SHORT).show()
+                    } else if (AppSettings.textIndex(this) != i) {
                         AppSettings.setTextIndex(this, i)
                         recreate()
                     }
                 }
-                val lp = LinearLayout.LayoutParams(dp(48), dp(48))
+                val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 lp.marginEnd = dp(14)
-                colorRow.addView(circle, lp)
+                colorRow.addView(cell, lp)
             }
             colorScroll.addView(colorRow)
             root.addView(colorScroll)
